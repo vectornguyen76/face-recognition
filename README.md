@@ -26,5 +26,5 @@
 ![result](https://user-images.githubusercontent.com/80930272/160270009-1fa47966-2fd9-422c-a19f-bc4b9e5e50c2.jpg)
 
 # Reference
-## https://github.com/deepcam-cn/yolov5-face
-## https://github.com/deepinsight/insightface/tree/master/recognition/arcface_torch
+- https://github.com/deepcam-cn/yolov5-face
+- https://github.com/deepinsight/insightface/tree/master/recognition/arcface_torch
