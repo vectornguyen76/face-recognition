@@ -2,7 +2,7 @@
 ![Picture1](https://user-images.githubusercontent.com/80930272/160551032-7767ea43-d6b6-48d4-9589-03f5e8a77140.png)
 
 # Yolov5-face to dectect face
-![image](https://user-images.githubusercontent.com/80930272/160270051-78367474-5c4c-4e5b-b650-ff157c04aaec.png)
+![face-detection](https://user-images.githubusercontent.com/80930272/163813811-3e6f2701-ef6d-46bc-807b-d5d283cd5c2f.gif)
 
 # Insight Face to recognition face
 ![image](https://user-images.githubusercontent.com/80930272/160270084-0237df33-77ef-42a4-a0a9-47b33c63b2d4.png)
