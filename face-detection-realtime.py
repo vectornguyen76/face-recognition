@@ -72,6 +72,13 @@ def main():
     frame_count = 0
     fps = -1
     
+    # Save video
+    frame_width = int(cap.get(3))
+    frame_height = int(cap.get(4))
+    
+    size = (frame_width, frame_height)
+    video = cv2.VideoWriter('results/face-detection.mp4',cv2.VideoWriter_fourcc(*'mp4v'), 6, size)
+    
     # Read until video is completed
     while(True):
         # Capture frame-by-frame
@@ -96,13 +103,16 @@ def main():
             if fps > 0:
                 fps_label = "FPS: %.2f" % fps
                 cv2.putText(frame, fps_label, (10, 25), cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 0, 255), 2)
+        video.write(frame)
         cv2.imshow("Face Detection", frame)
         
         # Press Q on keyboard to  exit
         if cv2.waitKey(25) & 0xFF == ord('q'):
             break  
-    cv2.destroyAllWindows()
+    
+    video.release()
     cap.release()
+    cv2.destroyAllWindows()
     cv2.waitKey(0)
 
 if __name__=="__main__":
