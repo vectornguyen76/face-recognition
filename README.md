@@ -7,7 +7,6 @@
 </p>
 
 # Insight Face to recognition face
-![image](https://user-images.githubusercontent.com/80930272/160270084-0237df33-77ef-42a4-a0a9-47b33c63b2d4.png)
 ![image](https://user-images.githubusercontent.com/80930272/160270088-a3760d88-ebc8-4535-907e-6b684276755a.png)
 
 # Cosine Similarity Algorithm
@@ -15,7 +14,9 @@
 
 # Result
 ## Input 
-![quare](https://user-images.githubusercontent.com/80930272/160269965-0ba07e7c-bd03-4e57-ad9d-1919f25f3d54.jpg)
+<p align="center">
+  <img src="https://user-images.githubusercontent.com/80930272/160269965-0ba07e7c-bd03-4e57-ad9d-1919f25f3d54.jpg" alt="animated" height="480" width="480" />
+</p>
 
 ## Get face
 <p align="center">
