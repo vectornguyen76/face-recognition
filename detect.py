@@ -18,7 +18,11 @@ from utils.general import check_img_size, non_max_suppression_face, scale_coords
 # Check device
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
-# Get model
+# Get model detect
+## Case 1:
+# model = attempt_load("yolov5_face/yolov5s-face.pt", map_location=device)
+
+## Case 2:
 model = attempt_load("yolov5_face/yolov5n-0.5.pt", map_location=device)
 
 # Resize image
@@ -69,7 +73,7 @@ def scale_coords_landmarks(img1_shape, coords, img0_shape, ratio_pad=None):
 
 def get_face(input_image):
     # Parameters
-    size_convert = 256
+    size_convert = 128
     conf_thres = 0.4
     iou_thres = 0.5
     
@@ -127,19 +131,23 @@ def main():
                 point_y = int(landmarks[i][2 * x + 1])
                 cv2.circle(frame, (point_x, point_y), tl+1, clors[x], -1)
             
-            frame_count += 1
-            
-            # Count fps 
-            if frame_count >= 30:
-                end = time.time_ns()
-                fps = 1e9 * frame_count / (end - start)
-                frame_count = 0
-                start = time.time_ns()
+        # Count fps 
+        frame_count += 1
         
-            if fps > 0:
-                fps_label = "FPS: %.2f" % fps
-                cv2.putText(frame, fps_label, (10, 25), cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 0, 255), 2)
+        if frame_count >= 30:
+            end = time.time_ns()
+            fps = 1e9 * frame_count / (end - start)
+            frame_count = 0
+            start = time.time_ns()
+
+        if fps > 0:
+            fps_label = "FPS: %.2f" % fps
+            cv2.putText(frame, fps_label, (10, 25), cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 0, 255), 2)
+        
+        #Save video
         video.write(frame)
+        
+        #Show result
         cv2.imshow("Face Detection", frame)
         
         # Press Q on keyboard to  exit
