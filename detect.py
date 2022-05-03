@@ -21,15 +21,11 @@ device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 # Get model
 model = attempt_load("yolov5_face/yolov5n-0.5.pt", map_location=device)
 
-# Parameter for yolov5
-size_convert = 640  # setup size de day qua model
-conf_thres = 0.4
-iou_thres = 0.5
-
 # Resize image
 def resize_image(img0, img_size):
     h0, w0 = img0.shape[:2]  # orig hw
     r = img_size / max(h0, w0)  # resize image to img_size
+
     if r != 1:  # always resize down, only resize up if training with augmentation
         interp = cv2.INTER_AREA if r < 1  else cv2.INTER_LINEAR
         img0 = cv2.resize(img0, (int(w0 * r), int(h0 * r)), interpolation=interp)
@@ -46,9 +42,34 @@ def resize_image(img0, img_size):
     
     return img
 
+def scale_coords_landmarks(img1_shape, coords, img0_shape, ratio_pad=None):
+    # Rescale coords (xyxy) from img1_shape to img0_shape
+    if ratio_pad is None:  # calculate from img0_shape
+        gain = min(img1_shape[0] / img0_shape[0], img1_shape[1] / img0_shape[1])  # gain  = old / new
+        pad = (img1_shape[1] - img0_shape[1] * gain) / 2, (img1_shape[0] - img0_shape[0] * gain) / 2  # wh padding
+    else:
+        gain = ratio_pad[0][0]
+        pad = ratio_pad[1]
+
+    coords[:, [0, 2, 4, 6, 8]] -= pad[0]  # x padding
+    coords[:, [1, 3, 5, 7, 9]] -= pad[1]  # y padding
+    coords[:, :10] /= gain
+    #clip_coords(coords, img0_shape)
+    coords[:, 0].clamp_(0, img0_shape[1])  # x1
+    coords[:, 1].clamp_(0, img0_shape[0])  # y1
+    coords[:, 2].clamp_(0, img0_shape[1])  # x2
+    coords[:, 3].clamp_(0, img0_shape[0])  # y2
+    coords[:, 4].clamp_(0, img0_shape[1])  # x3
+    coords[:, 5].clamp_(0, img0_shape[0])  # y3
+    coords[:, 6].clamp_(0, img0_shape[1])  # x4
+    coords[:, 7].clamp_(0, img0_shape[0])  # y4
+    coords[:, 8].clamp_(0, img0_shape[1])  # x5
+    coords[:, 9].clamp_(0, img0_shape[0])  # y5
+    return coords
+
 def get_face(input_image):
     # Parameters
-    size_convert = 640 
+    size_convert = 256
     conf_thres = 0.4
     iou_thres = 0.5
     
@@ -63,7 +84,9 @@ def get_face(input_image):
     det = non_max_suppression_face(pred, conf_thres, iou_thres)[0]
     bboxs = np.int32(scale_coords(img.shape[1:], det[:, :4], input_image.shape).round().cpu().numpy())
     
-    return bboxs
+    landmarks = np.int32(scale_coords_landmarks(img.shape[1:], det[:, 5:15], input_image.shape).round().cpu().numpy())    
+    
+    return bboxs, landmarks
 
 def main():
     # Open camera 
@@ -83,14 +106,27 @@ def main():
     while(True):
         # Capture frame-by-frame
         _, frame = cap.read()
+        
         # Get faces
-        bboxs = get_face(frame)
+        bboxs, landmarks = get_face(frame)
+        h,w,c = frame.shape
+        
+        tl = 1 or round(0.002 * (h + w) / 2) + 1  # line/font thickness
+        clors = [(255,0,0),(0,255,0),(0,0,255),(255,255,0),(0,255,255)]
+        
 
         # Get boxs
         for i in range(len(bboxs)):
             # Get location face
             x1, y1, x2, y2 = bboxs[i]
             cv2.rectangle(frame, (x1, y1), (x2, y2), (0, 146, 230), 2)
+            
+            # Landmarks
+            for x in range(5):
+                point_x = int(landmarks[i][2 * x])
+                point_y = int(landmarks[i][2 * x + 1])
+                cv2.circle(frame, (point_x, point_y), tl+1, clors[x], -1)
+            
             frame_count += 1
             
             # Count fps 
