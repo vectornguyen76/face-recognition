@@ -18,14 +18,8 @@
 ![image](https://user-images.githubusercontent.com/80930272/160270156-37fe3269-ca65-4692-a3b2-e9568b3876f8.png)
 
 # Test recognition
-## Input
 <p align="center">
-  <img src="https://user-images.githubusercontent.com/80930272/160269998-de757866-8c30-452d-8840-f8d69fe8dba9.jpg" alt="animated" />
-</p>
-
-## Output  
-<p align="center">
-  <img src="https://user-images.githubusercontent.com/80930272/160270009-1fa47966-2fd9-422c-a19f-bc4b9e5e50c2.jpg" alt="animated" />
+  <img src="./results/face-recognition.gif" alt="animated" />
 </p>
 
 # Reference
