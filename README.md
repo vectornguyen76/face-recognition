@@ -8,7 +8,7 @@
 
 # Yolov5-face to dectect face
 <p align="center">
-  <img src="./results/face-detection.gif" alt="animated" />
+  <img src="./results/face-detectiona.gif" alt="animated" />
 </p>
 
 # Insight Face to recognition face
