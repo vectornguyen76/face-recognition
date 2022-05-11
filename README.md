@@ -1,3 +1,8 @@
+# Real-Time Face Recognition
+<p align="center">
+  <img src="./results/face-recognition.gif" alt="animated" />
+</p>
+
 # Face Recognition use Yolov5-face, Insightface, Similarity Measure 
 ![Picture1](https://user-images.githubusercontent.com/80930272/160551032-7767ea43-d6b6-48d4-9589-03f5e8a77140.png)
 
@@ -16,11 +21,6 @@
 
 # Cosine Similarity Algorithm
 ![image](https://user-images.githubusercontent.com/80930272/160270156-37fe3269-ca65-4692-a3b2-e9568b3876f8.png)
-
-# Test recognition
-<p align="center">
-  <img src="./results/face-recognition.gif" alt="animated" />
-</p>
 
 # Reference
 - https://github.com/deepcam-cn/yolov5-face
