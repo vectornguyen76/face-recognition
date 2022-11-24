@@ -104,7 +104,7 @@ def main():
     frame_height = int(cap.get(4))
     
     size = (frame_width, frame_height)
-    video = cv2.VideoWriter('results/face-detection.mp4',cv2.VideoWriter_fourcc(*'mp4v'), 6, size)
+    video = cv2.VideoWriter('results/face-detection.mp4',cv2.VideoWriter_fourcc(*'mp4v'), 30, size)
     
     # Read until video is completed
     while(True):

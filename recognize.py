@@ -137,7 +137,7 @@ def get_feature(face_image, training = True):
     images_emb = emb_img_face/np.linalg.norm(emb_img_face)
     return images_emb
 
-def read_features(root_fearure_path = "static/feature/18face_features.npz"):
+def read_features(root_fearure_path = "static/feature/face_features.npz"):
     data = np.load(root_fearure_path, allow_pickle=True)
     images_name = data["arr1"]
     images_emb = data["arr2"]
@@ -177,7 +177,7 @@ def main():
     frame_height = int(cap.get(4))
     
     size = (frame_width, frame_height)
-    video = cv2.VideoWriter('results/face-recognition.mp4',cv2.VideoWriter_fourcc(*'mp4v'), 6, size)
+    video = cv2.VideoWriter('./static/results/face-recognition2.mp4',cv2.VideoWriter_fourcc(*'mp4v'), 6, size)
     
     # Read until video is completed
     while(True):
