@@ -1,14 +1,16 @@
 # Real-Time Face Recognition
 <p align="center">
-  <img src="./results/face-recognition.gif" alt="animated" />
+  <img src="./static/results/face-recognition.gif" alt="animated" />
 </p>
 
 # Face Recognition use Yolov5-face, Insightface, Similarity Measure 
-![Picture1](https://user-images.githubusercontent.com/80930272/160551032-7767ea43-d6b6-48d4-9589-03f5e8a77140.png)
+<p align="center">
+  <img src="./static/results/workflow.png" alt="animated" />
+</p>
 
 # Yolov5-face to dectect face
 <p align="center">
-  <img src="./results/face-detection.gif" alt="animated" />
+  <img src="./static/results/face-detection.gif" alt="animated" />
 </p>
 
 # Insight Face to recognition face
