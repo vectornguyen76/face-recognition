@@ -1,1 +1,1 @@
-[Pretrained] - Google Drive: https://drive.google.com/drive/folders/164k6zeOuFKmXSrFyaTgu7t2b6YqL8CYn?usp=sharing
+[Pretrained] - Google Drive: https://drive.google.com/drive/folders/1TsAIkKUo_LK_ao_Ta112FbsukuPIQtW0?usp=share_link
