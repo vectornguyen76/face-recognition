@@ -1,3 +1,6 @@
 documents
 yolov5_face/*.pt
 insightface/*.pth
+insightface/__pycache__
+static/results/*.mp4
+
