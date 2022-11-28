@@ -211,6 +211,8 @@ def main():
                 face_image = frame[y1:y2, x1:x2]
                 thread = Thread(target=recognition, args=(face_image,))
                 thread.start()
+                
+                thread.join()
         
             if name == null:
                 continue
