@@ -52,3 +52,4 @@ python recognize.py
 # Reference
 - https://github.com/deepcam-cn/yolov5-face
 - https://github.com/deepinsight/insightface/tree/master/recognition/arcface_torch
+

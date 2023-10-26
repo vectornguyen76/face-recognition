@@ -1,6 +1,4 @@
 #pytorch
-from concurrent.futures import thread
-from sqlalchemy import null
 import torch
 from torchvision import transforms
 import time
@@ -9,32 +7,32 @@ from threading import Thread
 #other lib
 import sys
 import numpy as np
-import os
 import cv2
 
-sys.path.insert(0, "yolov5_face")
-from models.experimental import attempt_load
-from utils.datasets import letterbox
-from utils.general import check_img_size, non_max_suppression_face, scale_coords
+sys.path.insert(0, "face_detection/yolov5_face")
+
+from face_detection.yolov5_face.models.experimental import attempt_load
+from face_detection.yolov5_face.utils.datasets import letterbox
+from face_detection.yolov5_face.utils.general import check_img_size, non_max_suppression_face, scale_coords
 
 # Check device
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
 # Get model detect
 ## Case 1:
-# model = attempt_load("yolov5_face/yolov5s-face.pt", map_location=device)
+# model = attempt_load("face_detection/yolov5_face/yolov5s-face.pt", map_location=device)
 
 ## Case 2:
-model = attempt_load("yolov5_face/yolov5n-0.5.pt", map_location=device)
+model = attempt_load("face_detection/yolov5_face/yolov5n-0.5.pt", map_location=device)
 
 # Get model recognition
 ## Case 1: 
-from insightface.insight_face import iresnet100
+from face_recognition.insightface.model import iresnet100
 weight = torch.load("insightface/resnet100_backbone.pth", map_location = device)
 model_emb = iresnet100()
 
 ## Case 2: 
-# from insightface.insight_face import iresnet18
+# from face_recognition.insightface.model import iresnet18
 # weight = torch.load("insightface/resnet18_backbone.pth", map_location = device)
 # model_emb = iresnet18()
 
@@ -50,7 +48,7 @@ face_preprocess = transforms.Compose([
 
 isThread = True
 score = 0
-name = null
+name = None
 
 # Resize image
 def resize_image(img0, img_size):
@@ -212,7 +210,7 @@ def main():
                 thread = Thread(target=recognition, args=(face_image,))
                 thread.start()
         
-            if name == null:
+            if name == None:
                 continue
             else:
                 if score < 0.25:

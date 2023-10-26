@@ -2,7 +2,6 @@ import argparse
 #pytorch
 from concurrent.futures import thread
 from xmlrpc.client import Boolean
-from sqlalchemy import null
 import torch
 from torchvision import transforms
 from threading import Thread
@@ -14,29 +13,29 @@ import os
 import cv2
 import shutil
 
-sys.path.insert(0, "yolov5_face")
-from models.experimental import attempt_load
-from utils.datasets import letterbox
-from utils.general import check_img_size, non_max_suppression_face, scale_coords
+sys.path.insert(0, "face_detection/yolov5_face")
+from face_detection.yolov5_face.models.experimental import attempt_load
+from face_detection.yolov5_face.utils.datasets import letterbox
+from face_detection.yolov5_face.utils.general import check_img_size, non_max_suppression_face, scale_coords
 
 # Check device
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
 # Get model detect
 ## Case 1:
-# model = attempt_load("yolov5_face/yolov5s-face.pt", map_location=device)
+# model = attempt_load("face_detection/yolov5_face/yolov5s-face.pt", map_location=device)
 
 ## Case 2:
-model = attempt_load("yolov5_face/yolov5n-0.5.pt", map_location=device)
+model = attempt_load("face_detection/yolov5_face/yolov5n-0.5.pt", map_location=device)
 
 # Get model recognition
 ## Case 1: 
-from insightface.insight_face import iresnet100
+from face_recognition.insightface.model import iresnet100
 weight = torch.load("insightface/resnet100_backbone.pth", map_location = device)
 model_emb = iresnet100()
 
 ## Case 2: 
-# from insightface.insight_face import iresnet18
+# from face_recognition.insightface.model import iresnet18
 # weight = torch.load("insightface/resnet18_backbone.pth", map_location = device)
 # model_emb = iresnet18()
 
@@ -114,7 +113,7 @@ def read_features(root_fearure_path):
         
         return images_name, images_emb
     except:
-        return null
+        return None
 
 def training(full_training_dir, additional_training_dir, 
              faces_save_dir, features_save_dir, is_add_user):
@@ -171,7 +170,7 @@ def training(full_training_dir, additional_training_dir,
     images_name = np.array(images_name)
     
     features = read_features(features_save_dir) 
-    if features == null or is_add_user== False:
+    if features == None or is_add_user== False:
         pass
     else:        
         # Read features

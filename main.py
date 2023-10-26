@@ -7,21 +7,21 @@ import sys
 import numpy as np
 import os
 import cv2
-from insightface.insight_face import iresnet100
+from face_recognition.insightface.model import iresnet100
 from PIL import Image
 
-sys.path.insert(0, "yolov5_face")
+sys.path.insert(0, "face_detection/yolov5_face")
 
-from models.experimental import attempt_load
-from utils.datasets import letterbox
-from utils.general import check_img_size, non_max_suppression_face, scale_coords
+from face_detection.yolov5_face.models.experimental import attempt_load
+from face_detection.yolov5_face.utils.datasets import letterbox
+from face_detection.yolov5_face.utils.general import check_img_size, non_max_suppression_face, scale_coords
 
 # Check device
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
 # Get model
-# model = attempt_load("yolov5_face/yolov5m-face.pt", map_location=device)
-model = attempt_load("yolov5_face/yolov5n-0.5.pt", map_location=device)
+# model = attempt_load("face_detection/yolov5_face/yolov5m-face.pt", map_location=device)
+model = attempt_load("face_detection/yolov5_face/yolov5n-0.5.pt", map_location=device)
 
 weight = torch.load("insightface/16_backbone.pth", map_location = device)
 model_emb = iresnet100()
