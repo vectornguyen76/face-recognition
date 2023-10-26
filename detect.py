@@ -5,25 +5,24 @@ from torchvision import transforms
 #other lib
 import sys
 import numpy as np
-import os
 import cv2
 import time
 
-sys.path.insert(0, "yolov5_face")
+sys.path.insert(0, "face_detection/yolov5_face")
 
-from models.experimental import attempt_load
-from utils.datasets import letterbox
-from utils.general import check_img_size, non_max_suppression_face, scale_coords
+from face_detection.yolov5_face.models.experimental import attempt_load
+from face_detection.yolov5_face.utils.datasets import letterbox
+from face_detection.yolov5_face.utils.general import check_img_size, non_max_suppression_face, scale_coords
 
 # Check device
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
 # Get model detect
 ## Case 1:
-# model = attempt_load("yolov5_face/yolov5s-face.pt", map_location=device)
+# model = attempt_load("face_detection/yolov5_face/yolov5s-face.pt", map_location=device)
 
 ## Case 2:
-model = attempt_load("yolov5_face/yolov5n-0.5.pt", map_location=device)
+model = attempt_load("face_detection/yolov5_face/yolov5n-0.5.pt", map_location=device)
 
 # Resize image
 def resize_image(img0, img_size):
