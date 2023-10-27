@@ -53,3 +53,7 @@ python recognize.py
 - https://github.com/deepcam-cn/yolov5-face
 - https://github.com/deepinsight/insightface/tree/master/recognition/arcface_torch
 - https://github.com/SthPhoenix/InsightFace-REST
+
+pip install torch==1.9.1+cpu torchvision==0.10.1+cpu torchaudio==0.9.1 -f https://download.pytorch.org/whl/torch_stable.html
+
+python tracking3.py video -f face_tracking/exps/example/mot/yolox_s_mix_det.py -c face_tracking/pretrained/bytetrack_s_mot17.pth.tar --fuse --save_result &> log.txt
