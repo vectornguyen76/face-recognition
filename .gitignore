@@ -1,3 +1,5 @@
+weights/
+
 *.mp4
 
 .env
