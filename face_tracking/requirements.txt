@@ -1,0 +1,21 @@
+# TODO: Update with exact module version
+numpy
+opencv_python
+loguru
+scikit-image
+tqdm
+Pillow
+thop
+ninja
+tabulate
+tensorboard
+lap
+motmetrics
+filterpy
+h5py
+
+# verified versions
+# onnx==1.8.1
+# onnxruntime==1.8.0
+# onnx-simplifier==0.3.5
+pip install git+https://github.com/cocodataset/cocoapi.git#subdirectory=PythonAPI --no-cache-dir --no-index
