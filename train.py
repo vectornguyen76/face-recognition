@@ -30,13 +30,13 @@ model = attempt_load("face_detection/yolov5_face/yolov5n-0.5.pt", map_location=d
 
 # Get model recognition
 ## Case 1: 
-from face_recognition.insightface.model import iresnet100
-weight = torch.load("insightface/resnet100_backbone.pth", map_location = device)
+from face_recognition.arcface.model import iresnet100
+weight = torch.load("arcface/resnet100_backbone.pth", map_location = device)
 model_emb = iresnet100()
 
 ## Case 2: 
-# from face_recognition.insightface.model import iresnet18
-# weight = torch.load("insightface/resnet18_backbone.pth", map_location = device)
+# from face_recognition.arcface.model import iresnet18
+# weight = torch.load("arcface/resnet18_backbone.pth", map_location = device)
 # model_emb = iresnet18()
 
 model_emb.load_state_dict(weight)

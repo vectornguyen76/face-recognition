@@ -7,8 +7,7 @@ import sys
 import numpy as np
 import os
 import cv2
-from face_recognition.insightface.model import iresnet100
-from PIL import Image
+from face_recognition.arcface.model import iresnet100
 
 sys.path.insert(0, "face_detection/yolov5_face")
 
@@ -23,7 +22,7 @@ device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 # model = attempt_load("face_detection/yolov5_face/yolov5m-face.pt", map_location=device)
 model = attempt_load("face_detection/yolov5_face/yolov5n-0.5.pt", map_location=device)
 
-weight = torch.load("insightface/16_backbone.pth", map_location = device)
+weight = torch.load("arcface/16_backbone.pth", map_location = device)
 model_emb = iresnet100()
 model_emb.load_state_dict(weight)
 model_emb.to(device)
