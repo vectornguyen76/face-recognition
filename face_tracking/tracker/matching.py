@@ -5,9 +5,6 @@ BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 sys.path.append(BASE_DIR)
 
 
-import time
-
-import cv2
 import kalman_filter
 import lap
 import numpy as np
