@@ -19,13 +19,14 @@ python camera_test.py --trained_model weights/mobilenet0.25_Final.pth --network 
 <h3> Using Image </h3>
 change image in ./curve, change file path in detect.py (line 87)
 
-
 backbone: resnet50
+
 ```
 python detect.py --trained_model weights/Resnet50_Final.pth --network resnet50 --cpu
 ```
 
 backbone: mobilenet0.25
+
 ```
 python detect.py --trained_model weights/mobilenet0.25_Final.pth --network mobile0.25 --cpu
 ```
