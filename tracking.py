@@ -64,9 +64,7 @@ def inference(detector, args):
 
         if ret_val:
             # Perform face detection and tracking on the frame
-            outputs, img_info = detector.inference_tracking(
-                input_image=frame, timer=timer
-            )
+            outputs, img_info = detector.detect_tracking(image=frame, timer=timer)
 
             if outputs[0] is not None:
                 online_targets = tracker.update(
@@ -114,7 +112,9 @@ def inference(detector, args):
 def main():
     file_name = "./face_tracking/config/config_tracking.yaml"
     config_tracking = load_config(file_name)
-    detector = Yolov5Face()
+    detector = Yolov5Face(
+        model_file="face_detection/yolov5_face/weights/yolov5n-0.5.pt"
+    )
 
     logger.info("Args: {}".format(config_tracking))
     inference(detector=detector, args=config_tracking)
