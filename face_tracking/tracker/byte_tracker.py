@@ -1,6 +1,8 @@
 import os
 import sys
 
+import torch
+
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 sys.path.append(BASE_DIR)
 
@@ -187,10 +189,10 @@ class BYTETracker(object):
         inds_high = scores < self.args["track_thresh"]
 
         inds_second = np.logical_and(inds_low, inds_high)
-        dets_second = bboxes[inds_second]
+        dets_second = bboxes[inds_second.to(torch.bool)]
         dets = bboxes[remain_inds]
         scores_keep = scores[remain_inds]
-        scores_second = scores[inds_second]
+        scores_second = scores[inds_second.to(torch.bool)]
 
         if len(dets) > 0:
             """Detections"""

@@ -6,12 +6,13 @@ import cv2
 import yaml
 from loguru import logger
 
-from face_detection.yolov5_face.detect import Detector
+from face_detection.yolov5_face.detector import Yolov5Face
 from face_tracking.tracker.byte_tracker import BYTETracker
 from face_tracking.tracker.timer import Timer
 from face_tracking.tracker.visualize import plot_tracking
 
 
+# Function to load a YAML configuration file
 def load_config(file_name):
     with open(file_name, "r") as stream:
         try:
@@ -20,15 +21,17 @@ def load_config(file_name):
             print(exc)
 
 
+# Function for performing object detection and tracking
 def inference(detector, args):
+    # Open a video capture object
     cap = cv2.VideoCapture(args["input_path"])
 
-    width = cap.get(cv2.CAP_PROP_FRAME_WIDTH)  # float
-    height = cap.get(cv2.CAP_PROP_FRAME_HEIGHT)  # float
+    # Get video properties (e.g., frame width, height, and FPS)
+    width = cap.get(cv2.CAP_PROP_FRAME_WIDTH)
+    height = cap.get(cv2.CAP_PROP_FRAME_HEIGHT)
     fps = cap.get(cv2.CAP_PROP_FPS)
     timestamp = time.strftime("%Y_%m_%d_%H_%M_%S", time.localtime())
     save_folder = osp.join(args["output_path"], timestamp)
-
     os.makedirs(save_folder, exist_ok=True)
 
     if args["input_tupe"] == "video":
@@ -38,12 +41,16 @@ def inference(detector, args):
 
     logger.info(f"video save_path is {save_path}")
 
+    # Create a video writer
     vid_writer = cv2.VideoWriter(
         save_path, cv2.VideoWriter_fourcc(*"mp4v"), fps, (int(width), int(height))
     )
+
+    # Initialize a tracker and a timer
     tracker = BYTETracker(args=args, frame_rate=30)
     timer = Timer()
     frame_id = 0
+
     while True:
         if frame_id % 20 == 0:
             logger.info(
@@ -51,11 +58,13 @@ def inference(detector, args):
                     frame_id, 1.0 / max(1e-5, timer.average_time)
                 )
             )
+
+        # Read a frame from the video capture
         ret_val, frame = cap.read()
+
         if ret_val:
-            outputs, img_info = detector.inference_tracking(
-                input_image=frame, timer=timer
-            )
+            # Perform face detection and tracking on the frame
+            outputs, img_info = detector.detect_tracking(image=frame, timer=timer)
 
             if outputs[0] is not None:
                 online_targets = tracker.update(
@@ -64,6 +73,7 @@ def inference(detector, args):
                 online_tlwhs = []
                 online_ids = []
                 online_scores = []
+
                 for t in online_targets:
                     tlwh = t.tlwh
                     tid = t.track_id
@@ -72,6 +82,7 @@ def inference(detector, args):
                         online_tlwhs.append(tlwh)
                         online_ids.append(tid)
                         online_scores.append(t.score)
+
                 timer.toc()
                 online_im = plot_tracking(
                     img_info["raw_img"],
@@ -83,8 +94,13 @@ def inference(detector, args):
             else:
                 timer.toc()
                 online_im = img_info["raw_img"]
-            if True:
-                vid_writer.write(online_im)
+
+            # Write the processed frame to the output video
+            # if True:
+            #     vid_writer.write(online_im)
+            cv2.imshow("Face Detection", online_im)
+
+            # Check for user exit input
             ch = cv2.waitKey(1)
             if ch == 27 or ch == ord("q") or ch == ord("Q"):
                 break
@@ -93,10 +109,13 @@ def inference(detector, args):
         frame_id += 1
 
 
+# Main function
 def main():
     file_name = "./face_tracking/config/config_tracking.yaml"
     config_tracking = load_config(file_name)
-    detector = Detector()
+    detector = Yolov5Face(
+        model_file="face_detection/yolov5_face/yolov5n-0.5.pt"
+    )
 
     logger.info("Args: {}".format(config_tracking))
     inference(detector=detector, args=config_tracking)

@@ -1,5 +1,5 @@
-input_tupe: video
-input_path: face_tracking/videos/face.mp4
+input_tupe: camera
+input_path: 0 #face_tracking/videos/face.mp4
 output_path: face_tracking/outputs
 device: cpu
 fps: 30

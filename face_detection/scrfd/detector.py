@@ -1,19 +1,8 @@
-# -*- coding: utf-8 -*-
-# @Organization  : insightface.ai
-# @Author        : Jia Guo
-# @Time          : 2021-05-04
-# @Function      :
-
-from __future__ import division
-
-import datetime
-import os
 import os.path as osp
-import sys
+import time
 
 import cv2
 import numpy as np
-import onnx
 import onnxruntime
 
 
@@ -77,8 +66,6 @@ def distance2kps(points, distance, max_shape=None):
 
 class SCRFD:
     def __init__(self, model_file=None, session=None):
-        import onnxruntime
-
         self.model_file = model_file
         self.session = session
         self.taskname = "detection"
@@ -89,6 +76,7 @@ class SCRFD:
             self.session = onnxruntime.InferenceSession(self.model_file, None)
         self.center_cache = {}
         self.nms_thresh = 0.4
+
         self._init_vars()
 
     def _init_vars(self):
@@ -218,11 +206,14 @@ class SCRFD:
                 kpss_list.append(pos_kpss)
         return scores_list, bboxes_list, kpss_list
 
-    def detect(self, img, thresh=0.5, input_size=None, max_num=0, metric="default"):
+    def detect(
+        self, image, thresh=0.5, input_size=(128, 128), max_num=0, metric="default"
+    ):
         assert input_size is not None or self.input_size is not None
+
         input_size = self.input_size if input_size is None else input_size
 
-        im_ratio = float(img.shape[0]) / img.shape[1]
+        im_ratio = float(image.shape[0]) / image.shape[1]
         model_ratio = float(input_size[1]) / input_size[0]
         if im_ratio > model_ratio:
             new_height = input_size[1]
@@ -230,8 +221,8 @@ class SCRFD:
         else:
             new_width = input_size[0]
             new_height = int(new_width * im_ratio)
-        det_scale = float(new_height) / img.shape[0]
-        resized_img = cv2.resize(img, (new_width, new_height))
+        det_scale = float(new_height) / image.shape[0]
+        resized_img = cv2.resize(image, (new_width, new_height))
         det_img = np.zeros((input_size[1], input_size[0], 3), dtype=np.uint8)
         det_img[:new_height, :new_width, :] = resized_img
 
@@ -254,7 +245,7 @@ class SCRFD:
             kpss = None
         if max_num > 0 and det.shape[0] > max_num:
             area = (det[:, 2] - det[:, 0]) * (det[:, 3] - det[:, 1])
-            img_center = img.shape[0] // 2, img.shape[1] // 2
+            img_center = image.shape[0] // 2, image.shape[1] // 2
             offsets = np.vstack(
                 [
                     (det[:, 0] + det[:, 2]) / 2 - img_center[1],
@@ -273,7 +264,7 @@ class SCRFD:
             det = det[bindex, :]
             if kpss is not None:
                 kpss = kpss[bindex, :]
-        return det, kpss
+        return np.int32(det), np.int32(kpss)
 
     def nms(self, dets):
         thresh = self.nms_thresh
@@ -307,35 +298,8 @@ class SCRFD:
 
 
 if __name__ == "__main__":
-    detector = SCRFD(model_file="./models/scrfd_2.5g_bnkps.onnx")
-    detector.prepare(-1)
-    # img_paths = ['./inputs/test2.jpg']
-    # for img_path in img_paths:
-    #     img = cv2.imread(img_path)
-
-    #     for _ in range(1):
-    #         ta = datetime.datetime.now()
-    #         bboxes, kpss = detector.detect(img, 0.5, input_size = (640, 640))
-    #         #bboxes, kpss = detector.detect(img, 0.5)
-    #         tb = datetime.datetime.now()
-    #         print('all cost:', (tb-ta).total_seconds()*1000)
-    #     print(img_path, bboxes.shape)
-    #     if kpss is not None:
-    #         print(kpss.shape)
-    #     for i in range(bboxes.shape[0]):
-    #         bbox = bboxes[i]
-    #         x1,y1,x2,y2,score = bbox.astype(np.int_)
-    #         cv2.rectangle(img, (x1,y1)  , (x2,y2) , (255,0,0) , 2)
-    #         if kpss is not None:
-    #             kps = kpss[i]
-    #             for kp in kps:
-    #                 kp = kp.astype(np.int_)
-    #                 cv2.circle(img, tuple(kp) , 1, (0,0,255) , 2)
-    #     filename = img_path.split('/')[-1]
-    #     print('output:', filename)
-    #     cv2.imwrite('./outputs/%s'%filename, img)
-
-    import time
+    detector = SCRFD(model_file="./weights/scrfd_2.5g_bnkps.onnx")
+    # detector.prepare(-1)
 
     # Open camera
     cap = cv2.VideoCapture(0)
@@ -349,7 +313,7 @@ if __name__ == "__main__":
         _, frame = cap.read()
 
         # Get faces
-        bboxes, kpss = detector.detect(frame, 0.5, input_size=(640, 640))
+        bboxes, kpss = detector.detect(frame, 0.5, input_size=(128, 128))
 
         h, w, c = frame.shape
 

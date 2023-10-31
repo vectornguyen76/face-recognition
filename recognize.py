@@ -2,44 +2,26 @@
 # other lib
 import sys
 import time
-from threading import Thread
 
+import os
 import cv2
 import numpy as np
 import torch
 from torchvision import transforms
-
-sys.path.insert(0, "face_detection/yolov5_face")
-
-from face_detection.yolov5_face.models.experimental import attempt_load
-from face_detection.yolov5_face.utils.datasets import letterbox
-from face_detection.yolov5_face.utils.general import (
-    check_img_size,
-    non_max_suppression_face,
-    scale_coords,
-)
+from face_alignment.utils import norm_crop, compare_encodings
+from face_detection.scrfd.detector import SCRFD
+# sys.path.insert(0, "face_detection/yolov5_face")
 
 # Check device
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
-# Get model detect
-## Case 1:
-# model = attempt_load("face_detection/yolov5_face/yolov5s-face.pt", map_location=device)
-
-## Case 2:
-model = attempt_load("face_detection/yolov5_face/yolov5n-0.5.pt", map_location=device)
+# Get model detection
+detector = SCRFD(model_file="face_detection/scrfd/weights/scrfd_2.5g_bnkps.onnx")
 
 # Get model recognition
-## Case 1:
-from face_recognition.arcface.model import iresnet100
-
-weight = torch.load("arcface/resnet100_backbone.pth", map_location=device)
-model_emb = iresnet100()
-
-## Case 2:
-# from face_recognition.insightface.model import iresnet18
-# weight = torch.load("insightface/resnet18_backbone.pth", map_location = device)
-# model_emb = iresnet18()
+from face_recognition.arcface.model import iresnet18
+weight = torch.load("face_recognition/arcface/resnet18_backbone.pth", map_location = device)
+model_emb = iresnet18()
 
 model_emb.load_state_dict(weight)
 model_emb.to(device)
@@ -53,89 +35,8 @@ face_preprocess = transforms.Compose(
     ]
 )
 
-isThread = True
-score = 0
-name = None
-
-
-# Resize image
-def resize_image(img0, img_size):
-    h0, w0 = img0.shape[:2]  # orig hw
-    r = img_size / max(h0, w0)  # resize image to img_size
-
-    if r != 1:  # always resize down, only resize up if training with augmentation
-        interp = cv2.INTER_AREA if r < 1 else cv2.INTER_LINEAR
-        img0 = cv2.resize(img0, (int(w0 * r), int(h0 * r)), interpolation=interp)
-
-    imgsz = check_img_size(img_size, s=model.stride.max())  # check img_size
-    img = letterbox(img0, new_shape=imgsz)[0]
-
-    # Convert
-    img = img[:, :, ::-1].transpose(2, 0, 1).copy()  # BGR to RGB, to 3x416x416
-
-    img = torch.from_numpy(img).to(device)
-    img = img.float()  # uint8 to fp16/32
-    img /= 255.0  # 0 - 255 to 0.0 - 1.0
-
-    return img
-
-
-def scale_coords_landmarks(img1_shape, coords, img0_shape, ratio_pad=None):
-    # Rescale coords (xyxy) from img1_shape to img0_shape
-    if ratio_pad is None:  # calculate from img0_shape
-        gain = min(
-            img1_shape[0] / img0_shape[0], img1_shape[1] / img0_shape[1]
-        )  # gain  = old / new
-        pad = (img1_shape[1] - img0_shape[1] * gain) / 2, (
-            img1_shape[0] - img0_shape[0] * gain
-        ) / 2  # wh padding
-    else:
-        gain = ratio_pad[0][0]
-        pad = ratio_pad[1]
-
-    coords[:, [0, 2, 4, 6, 8]] -= pad[0]  # x padding
-    coords[:, [1, 3, 5, 7, 9]] -= pad[1]  # y padding
-    coords[:, :10] /= gain
-    # clip_coords(coords, img0_shape)
-    coords[:, 0].clamp_(0, img0_shape[1])  # x1
-    coords[:, 1].clamp_(0, img0_shape[0])  # y1
-    coords[:, 2].clamp_(0, img0_shape[1])  # x2
-    coords[:, 3].clamp_(0, img0_shape[0])  # y2
-    coords[:, 4].clamp_(0, img0_shape[1])  # x3
-    coords[:, 5].clamp_(0, img0_shape[0])  # y3
-    coords[:, 6].clamp_(0, img0_shape[1])  # x4
-    coords[:, 7].clamp_(0, img0_shape[0])  # y4
-    coords[:, 8].clamp_(0, img0_shape[1])  # x5
-    coords[:, 9].clamp_(0, img0_shape[0])  # y5
-    return coords
-
-
 def get_face(input_image):
-    # Parameters
-    size_convert = 128
-    conf_thres = 0.4
-    iou_thres = 0.5
-
-    # Resize image
-    img = resize_image(input_image.copy(), size_convert)
-
-    # Via yolov5-face
-    with torch.no_grad():
-        pred = model(img[None, :])[0]
-
-    # Apply NMS
-    det = non_max_suppression_face(pred, conf_thres, iou_thres)[0]
-    bboxs = np.int32(
-        scale_coords(img.shape[1:], det[:, :4], input_image.shape).round().cpu().numpy()
-    )
-
-    landmarks = np.int32(
-        scale_coords_landmarks(img.shape[1:], det[:, 5:15], input_image.shape)
-        .round()
-        .cpu()
-        .numpy()
-    )
-
+    bboxs, landmarks = detector.detect(image=input_image)
     return bboxs, landmarks
 
 
@@ -158,35 +59,43 @@ def get_feature(face_image, training=True):
     return images_emb
 
 
-def read_features(root_fearure_path="static/feature/face_features.npz"):
-    data = np.load(root_fearure_path, allow_pickle=True)
-    images_name = data["arr1"]
-    images_emb = data["arr2"]
+# def read_features(root_fearure_path="static/feature/face_features.npz"):
+#     # data = np.load(root_fearure_path, allow_pickle=True)
+#     images_name = data["arr1"]
+#     images_emb = data["arr2"]
+#     return images_name, images_emb
 
-    return images_name, images_emb
 
+# test 
+def read_features(root_fearure_path="database/face-datasets"):
+    # data = np.load(root_fearure_path, allow_pickle=True)
+    images_emb = []
+    images_name = []
+    for name in os.listdir(root_fearure_path):
+        print("name", name)
+        for img in os.listdir(os.path.join(root_fearure_path, name)):
+            image = cv2.imread(os.path.join(root_fearure_path, name, img))
+            bboxs, landmarks = get_face(image)
+            align = norm_crop(image, landmarks[0])
+            embed = get_feature(align, training=False)
+            images_emb.append(embed)
+            images_name.append(name)
+    return np.array(images_name), np.array(images_emb)
+
+images_names, images_embs = read_features()
 
 def recognition(face_image):
-    global isThread, score, name
-
     # Get feature from face
     query_emb = get_feature(face_image, training=False)
 
-    # Read features
-    images_names, images_embs = read_features()
+    # scores = (query_emb @ images_embs.T)[0]
+    score, id_min = compare_encodings(query_emb, images_embs)
 
-    scores = (query_emb @ images_embs.T)[0]
-
-    id_min = np.argmax(scores)
-    score = scores[id_min]
     name = images_names[id_min]
-    isThread = True
-    print("successful")
-
+    score = score[0][0]
+    return score, name
 
 def main():
-    global isThread, score, name
-
     # Open camera
     cap = cv2.VideoCapture(0)
     start = time.time_ns()
@@ -198,12 +107,7 @@ def main():
     frame_height = int(cap.get(4))
 
     size = (frame_width, frame_height)
-    video = cv2.VideoWriter(
-        "./static/results/face-recognition2.mp4",
-        cv2.VideoWriter_fourcc(*"mp4v"),
-        6,
-        size,
-    )
+    video = cv2.VideoWriter("./static/results/face-recognition2.mp4", cv2.VideoWriter_fourcc(*"mp4v"), 6, size,)
 
     # Read until video is completed
     while True:
@@ -220,46 +124,30 @@ def main():
         # Get boxs
         for i in range(len(bboxs)):
             # Get location face
-            x1, y1, x2, y2 = bboxs[i]
+            x1, y1, x2, y2, _ = bboxs[i]
             cv2.rectangle(frame, (x1, y1), (x2, y2), (0, 146, 230), 2)
 
             # Landmarks
-            for x in range(5):
-                point_x = int(landmarks[i][2 * x])
-                point_y = int(landmarks[i][2 * x + 1])
-                cv2.circle(frame, (point_x, point_y), tl + 1, clors[x], -1)
+            for id, key_point in enumerate(landmarks[i]):
+                cv2.circle(frame, tuple(key_point), tl + 1, clors[id], -1)
 
-            # Get face from location
-            if isThread == True:
-                isThread = False
-
-                # Recognition
-                face_image = frame[y1:y2, x1:x2]
-                thread = Thread(target=recognition, args=(face_image,))
-                thread.start()
-
+            # Get Face Alignment from location
+            align = norm_crop(frame, landmarks[i])
+        
+            score, name = recognition(align)
+    
             if name == None:
                 continue
             else:
                 if score < 0.25:
                     caption = "UN_KNOWN"
                 else:
-                    caption = f"{name.split('_')[0].upper()}:{score:.2f}"
+                    caption = f"{name}:{score:.2f}"
 
                 t_size = cv2.getTextSize(caption, cv2.FONT_HERSHEY_PLAIN, 2, 2)[0]
 
-                cv2.rectangle(
-                    frame, (x1, y1), (x1 + t_size[0], y1 + t_size[1]), (0, 146, 230), -1
-                )
-                cv2.putText(
-                    frame,
-                    caption,
-                    (x1, y1 + t_size[1]),
-                    cv2.FONT_HERSHEY_PLAIN,
-                    2,
-                    [255, 255, 255],
-                    2,
-                )
+                cv2.rectangle(frame, (x1, y1), (x1 + t_size[0], y1 + t_size[1]), (0, 146, 230), -1)
+                cv2.putText(frame, caption, (x1, y1 + t_size[1]), cv2.FONT_HERSHEY_PLAIN, 2, [255, 255, 255], 2)
 
         # Count fps
         frame_count += 1
@@ -272,9 +160,7 @@ def main():
 
         if fps > 0:
             fps_label = "FPS: %.2f" % fps
-            cv2.putText(
-                frame, fps_label, (10, 25), cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 0, 255), 2
-            )
+            cv2.putText(frame, fps_label, (10, 25), cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 0, 255), 2)
 
         video.write(frame)
         cv2.imshow("Face Recognition", frame)
@@ -287,7 +173,6 @@ def main():
     cap.release()
     cv2.destroyAllWindows()
     cv2.waitKey(0)
-
 
 if __name__ == "__main__":
     main()
