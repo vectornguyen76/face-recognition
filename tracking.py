@@ -96,8 +96,9 @@ def inference(detector, args):
                 online_im = img_info["raw_img"]
 
             # Write the processed frame to the output video
-            if True:
-                vid_writer.write(online_im)
+            # if True:
+            #     vid_writer.write(online_im)
+            cv2.imshow("Face Detection", online_im)
 
             # Check for user exit input
             ch = cv2.waitKey(1)
@@ -113,7 +114,7 @@ def main():
     file_name = "./face_tracking/config/config_tracking.yaml"
     config_tracking = load_config(file_name)
     detector = Yolov5Face(
-        model_file="face_detection/yolov5_face/weights/yolov5n-0.5.pt"
+        model_file="face_detection/yolov5_face/yolov5n-0.5.pt"
     )
 
     logger.info("Args: {}".format(config_tracking))
