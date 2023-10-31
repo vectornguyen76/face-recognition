@@ -10,7 +10,7 @@ import torch
 from torchvision import transforms
 from face_alignment.utils import norm_crop, compare_encodings
 from face_detection.scrfd.detector import SCRFD
-sys.path.insert(0, "face_detection/yolov5_face")
+# sys.path.insert(0, "face_detection/yolov5_face")
 
 # Check device
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
@@ -19,8 +19,8 @@ device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 detector = SCRFD(model_file="face_detection/scrfd/weights/scrfd_2.5g_bnkps.onnx")
 
 # Get model recognition
-from face_recognition.insightface.model import iresnet18
-weight = torch.load("insightface/resnet18_backbone.pth", map_location = device)
+from face_recognition.arcface.model import iresnet18
+weight = torch.load("face_recognition/arcface/resnet18_backbone.pth", map_location = device)
 model_emb = iresnet18()
 
 model_emb.load_state_dict(weight)
