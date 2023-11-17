@@ -7,6 +7,7 @@ import torch.nn.functional as F
 import cv2
 print('opencv version', cv2.__version__)
 
+
 use_gpu = True
 font = cv2.FONT_HERSHEY_SCRIPT_SIMPLEX
 
