@@ -82,7 +82,7 @@ if __name__ == '__main__':
 
     resize = 1
 
-    cam = cv2.VideoCapture(0)
+    cam = cv2.VideoCapture(1)
     fps = cam.get(cv2.CAP_PROP_FPS)
     print(fps)
 
@@ -170,6 +170,7 @@ if __name__ == '__main__':
                 # cv2.circle(img_raw, (b[13], b[14]), 1, (255, 0, 0), 4)
             
             # save image
+            
             name = "test.jpg"
-            cv2.imwrite(name, img_raw)
+            # cv2.imwrite(name, img_raw)
             cv2.imshow("camera", img_raw)
