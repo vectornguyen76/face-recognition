@@ -9,7 +9,7 @@ save_result: True
 track_buffer: 30
 track_thresh: 0.5
 aspect_ratio_thresh: 1.6
-ckpt: pretrained/bytetrack_s_mot17.pth.tar
+ckpt: bytetrack_s_mot17.pth.tar
 fp16: True
 # fuse : True
 # mot20 : False

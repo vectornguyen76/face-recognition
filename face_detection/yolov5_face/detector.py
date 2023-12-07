@@ -141,7 +141,21 @@ class Yolov5Face(object):
             timer.tic()
             outputs = self.model(img[None, :])[0]
 
+        pred = outputs
         outputs = non_max_suppression_face(outputs, self.conf_thres, self.iou_thres)
         outputs[0] = outputs[0][:, :5]
 
-        return outputs, img_info
+        # Apply NMS
+        det = non_max_suppression_face(pred, self.conf_thres, self.iou_thres)[0]
+        bboxs = np.int32(
+            scale_coords(img.shape[1:], det[:, :5], image.shape).round().cpu().numpy()
+        )
+
+        landmarks = np.int32(
+            self.scale_coords_landmarks(img.shape[1:], det[:, 5:15], image.shape)
+            .round()
+            .cpu()
+            .numpy()
+        )
+
+        return outputs, img_info, bboxs, landmarks
