@@ -1,15 +1,17 @@
+import logging
 import os
 import os.path as osp
 import time
 
 import cv2
 import yaml
-from loguru import logger
 
 from face_detection.yolov5_face.detector import Yolov5Face
 from face_tracking.tracker.byte_tracker import BYTETracker
 from face_tracking.tracker.timer import Timer
 from face_tracking.tracker.visualize import plot_tracking
+
+logger = logging.getLogger(__name__)
 
 
 # Function to load a YAML configuration file
@@ -114,7 +116,7 @@ def main():
     file_name = "./face_tracking/config/config_tracking.yaml"
     config_tracking = load_config(file_name)
     detector = Yolov5Face(
-        model_file="face_detection/yolov5_face/yolov5n-0.5.pt"
+        model_file="face_detection/yolov5_face/weights/yolov5n-0.5.pt"
     )
 
     logger.info("Args: {}".format(config_tracking))

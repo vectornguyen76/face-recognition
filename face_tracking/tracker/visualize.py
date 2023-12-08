@@ -50,7 +50,9 @@ def get_color(idx):
     return color
 
 
-def plot_tracking(image, tlwhs, obj_ids, scores=None, frame_id=0, fps=0.0, ids2=None, names=None):
+def plot_tracking(
+    image, tlwhs, obj_ids, scores=None, frame_id=0, fps=0.0, ids2=None, names=None
+):
     im = np.ascontiguousarray(np.copy(image))
     im_h, im_w = im.shape[:2]
 
@@ -77,7 +79,7 @@ def plot_tracking(image, tlwhs, obj_ids, scores=None, frame_id=0, fps=0.0, ids2=
     for i, tlwh in enumerate(tlwhs):
         x1, y1, w, h = tlwh
         # intbox = tuple(map(int, (x1-w/2, y1, x1 + w/2, y1+ h)))
-        intbox = tuple(map(int, (x1, y1, x1 + w, y1+ h)))
+        intbox = tuple(map(int, (x1, y1, x1 + w, y1 + h)))
 
         obj_id = int(obj_ids[i])
         id_text = "{}".format(int(obj_id))

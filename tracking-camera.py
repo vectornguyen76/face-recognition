@@ -1,34 +1,29 @@
 import os
-import os.path as osp
-import time
-import requests
-import numpy as np
+import threading
+from queue import Queue
+
 import cv2
-import imutils
+import numpy as np
+import requests
+import torch
 import yaml
+from torchvision import transforms
+
+from face_alignment.utils import compare_encodings, norm_crop
+from face_detection.scrfd.detector import SCRFD
 from face_detection.yolov5_face.detector import Yolov5Face
+from face_recognition.arcface.model import iresnet18
 from face_tracking.tracker.byte_tracker import BYTETracker
 from face_tracking.tracker.timer import Timer
 from face_tracking.tracker.visualize import plot_tracking
-import redis
-from loguru import logger
-import json
-import threading
-from face_alignment.utils import norm_crop, compare_encodings
-import torch
-from torchvision import transforms
-from face_detection.scrfd.detector import SCRFD
-from queue import Queue
-from face_recognition.arcface.model import iresnet18
-
 
 face_data = {}
-detector = Yolov5Face(model_file="face_detection/yolov5_face/yolov5n-face.pt")
+detector = Yolov5Face(model_file="face_detection/yolov5_face/weights/yolov5n-face.pt")
 # detector = SCRFD(model_file="face_detection/scrfd/scrfd_2.5g_bnkps.onnx")
 
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 weight = torch.load(
-    "face_recognition/arcface/resnet18_backbone.pth", map_location=device
+    "face_recognition/arcface/weights/arcface_r18.pth", map_location=device
 )
 model_emb = iresnet18()
 
@@ -161,18 +156,22 @@ def recognition(face_image):
 images_names, images_embs = read_features()
 
 
-def IPCamera(url = "http://192.168.226.76:8080/shot.jpg"):
+def IPCamera(url="http://192.168.137.9:8080/shot.jpg"):
     # url = "http://192.168.1.9:8080/shot.jpg"
+
+    print("aaaaaaaaaaaaa")
     img_resp = requests.get(url)
     img_arr = np.array(bytearray(img_resp.content), dtype=np.uint8)
     img = cv2.imdecode(img_arr, -1)
     # img = imutils.resize(img, width=1000, height=1800)
     return img
 
-def Camera(cap = cv2.VideoCapture(1)):
-    # Capture frame-by-frame
-    ret, frame = cap.read()
-    return frame
+
+# def Camera(cap = cv2.VideoCapture(1)):
+#     # Capture frame-by-frame
+#     ret, frame = cap.read()
+#     return frame
+
 
 # thread 1
 def inference(detector, args, frame_queue):
@@ -189,6 +188,8 @@ def inference(detector, args, frame_queue):
             img, detector, tracker, timer, args, frame_id
         )
         frame_queue.put((raw_image, online_ids, bboxs, landmarks))
+        
+        print("online_frame", online_frame, online_frame.shape)
         cv2.imshow("Android_cam", online_frame)
 
         # Press Esc key to exit

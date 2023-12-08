@@ -158,4 +158,4 @@ class Yolov5Face(object):
             .numpy()
         )
 
-        return outputs, img_info, bboxs, landmarks
+        return outputs, img_info

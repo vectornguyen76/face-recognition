@@ -1,15 +1,45 @@
 import os
 import sys
-import numpy as np
-import scipy
-from scipy.optimize import linear_sum_assignment
-from scipy.spatial.distance import cdist
 
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 sys.path.append(BASE_DIR)
-import kalman_filter
 
-# Other function definitions remain the same
+
+import kalman_filter
+import lap
+import numpy as np
+import scipy
+from cython_bbox import bbox_overlaps as bbox_ious
+from scipy.spatial.distance import cdist
+
+
+def merge_matches(m1, m2, shape):
+    O, P, Q = shape
+    m1 = np.asarray(m1)
+    m2 = np.asarray(m2)
+
+    M1 = scipy.sparse.coo_matrix((np.ones(len(m1)), (m1[:, 0], m1[:, 1])), shape=(O, P))
+    M2 = scipy.sparse.coo_matrix((np.ones(len(m2)), (m2[:, 0], m2[:, 1])), shape=(P, Q))
+
+    mask = M1 * M2
+    match = mask.nonzero()
+    match = list(zip(match[0], match[1]))
+    unmatched_O = tuple(set(range(O)) - set([i for i, j in match]))
+    unmatched_Q = tuple(set(range(Q)) - set([j for i, j in match]))
+
+    return match, unmatched_O, unmatched_Q
+
+
+def _indices_to_matches(cost_matrix, indices, thresh):
+    matched_cost = cost_matrix[tuple(zip(*indices))]
+    matched_mask = matched_cost <= thresh
+
+    matches = indices[matched_mask]
+    unmatched_a = tuple(set(range(cost_matrix.shape[0])) - set(matches[:, 0]))
+    unmatched_b = tuple(set(range(cost_matrix.shape[1])) - set(matches[:, 1]))
+
+    return matches, unmatched_a, unmatched_b
+
 
 def linear_assignment(cost_matrix, thresh):
     if cost_matrix.size == 0:
@@ -18,40 +48,16 @@ def linear_assignment(cost_matrix, thresh):
             tuple(range(cost_matrix.shape[0])),
             tuple(range(cost_matrix.shape[1])),
         )
+    matches, unmatched_a, unmatched_b = [], [], []
+    cost, x, y = lap.lapjv(cost_matrix, extend_cost=True, cost_limit=thresh)
+    for ix, mx in enumerate(x):
+        if mx >= 0:
+            matches.append([ix, mx])
+    unmatched_a = np.where(x < 0)[0]
+    unmatched_b = np.where(y < 0)[0]
+    matches = np.asarray(matches)
+    return matches, unmatched_a, unmatched_b
 
-    row_ind, col_ind = linear_sum_assignment(cost_matrix)
-    matches = np.array([[r, c] for r, c in zip(row_ind, col_ind) if cost_matrix[r, c] <= thresh])
-    unmatched_a = np.array([i for i in range(cost_matrix.shape[0]) if i not in row_ind])
-    unmatched_b = np.array([i for i in range(cost_matrix.shape[1]) if i not in col_ind])
-
-    return matches, tuple(unmatched_a), tuple(unmatched_b)
-
-def bbox_iou(box1, box2):
-    """
-    Compute the IoU of two bounding boxes.
-    """
-    # Determine the coordinates of each of the boxes
-    x1, y1, x2, y2 = box1
-    x1_p, y1_p, x2_p, y2_p = box2
-
-    # Calculate the area of intersection rectangle
-    xi1 = max(x1, x1_p)
-    yi1 = max(y1, y1_p)
-    xi2 = min(x2, x2_p)
-    yi2 = min(y2, y2_p)
-    inter_area = max(xi2 - xi1, 0) * max(yi2 - yi1, 0)
-
-    # Calculate each box area
-    box1_area = (x2 - x1) * (y2 - y1)
-    box2_area = (x2_p - x1_p) * (y2_p - y1_p)
-
-    # Calculate union area
-    union_area = box1_area + box2_area - inter_area
-
-    # Calculate IoU
-    iou = inter_area / union_area
-
-    return iou
 
 def ious(atlbrs, btlbrs):
     """
@@ -62,10 +68,16 @@ def ious(atlbrs, btlbrs):
     :rtype ious np.ndarray
     """
     ious = np.zeros((len(atlbrs), len(btlbrs)), dtype=np.float64)
-    for i, box1 in enumerate(atlbrs):
-        for j, box2 in enumerate(btlbrs):
-            ious[i, j] = bbox_iou(box1, box2)
+    if ious.size == 0:
+        return ious
+
+    ious = bbox_ious(
+        np.ascontiguousarray(atlbrs, dtype=np.float64),
+        np.ascontiguousarray(btlbrs, dtype=np.float64),
+    )
+
     return ious
+
 
 def iou_distance(atracks, btracks):
     """
@@ -190,4 +202,3 @@ def fuse_score(cost_matrix, detections):
     fuse_sim = iou_sim * det_scores
     fuse_cost = 1 - fuse_sim
     return fuse_cost
-

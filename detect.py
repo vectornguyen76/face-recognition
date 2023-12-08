@@ -9,6 +9,7 @@ from face_detection.yolov5_face.detector import Yolov5Face
 detector = Yolov5Face(model_file="face_detection/yolov5_face/weights/yolov5n-0.5.pt")
 # detector = SCRFD(model_file="face_detection/scrfd/weights/scrfd_2.5g_bnkps.onnx")
 
+
 def main():
     # Open the camera
     cap = cv2.VideoCapture(0)

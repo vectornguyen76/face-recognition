@@ -1,15 +1,17 @@
 # pytorch
 # other lib
+import os
 import sys
 import time
 
-import os
 import cv2
 import numpy as np
 import torch
 from torchvision import transforms
-from face_alignment.utils import norm_crop, compare_encodings
+
+from face_alignment.utils import compare_encodings, norm_crop
 from face_detection.scrfd.detector import SCRFD
+
 # sys.path.insert(0, "face_detection/yolov5_face")
 
 # Check device
@@ -20,7 +22,10 @@ detector = SCRFD(model_file="face_detection/scrfd/weights/scrfd_2.5g_bnkps.onnx"
 
 # Get model recognition
 from face_recognition.arcface.model import iresnet18
-weight = torch.load("face_recognition/arcface/resnet18_backbone.pth", map_location = device)
+
+weight = torch.load(
+    "face_recognition/arcface/weights/arcface_r18.pth", map_location=device
+)
 model_emb = iresnet18()
 
 model_emb.load_state_dict(weight)
@@ -34,6 +39,7 @@ face_preprocess = transforms.Compose(
         transforms.Normalize(mean=[0.5, 0.5, 0.5], std=[0.5, 0.5, 0.5]),
     ]
 )
+
 
 def get_face(input_image):
     bboxs, landmarks = detector.detect(image=input_image)
@@ -66,7 +72,7 @@ def get_feature(face_image, training=True):
 #     return images_name, images_emb
 
 
-# test 
+# test
 def read_features(root_fearure_path="database/face-datasets"):
     # data = np.load(root_fearure_path, allow_pickle=True)
     images_emb = []
@@ -82,7 +88,9 @@ def read_features(root_fearure_path="database/face-datasets"):
             images_name.append(name)
     return np.array(images_name), np.array(images_emb)
 
+
 images_names, images_embs = read_features()
+
 
 def recognition(face_image):
     # Get feature from face
@@ -94,6 +102,7 @@ def recognition(face_image):
     name = images_names[id_min]
     score = score[0][0]
     return score, name
+
 
 def main():
     # Open camera
@@ -107,7 +116,12 @@ def main():
     frame_height = int(cap.get(4))
 
     size = (frame_width, frame_height)
-    video = cv2.VideoWriter("./static/results/face-recognition2.mp4", cv2.VideoWriter_fourcc(*"mp4v"), 6, size,)
+    video = cv2.VideoWriter(
+        "./static/results/face-recognition2.mp4",
+        cv2.VideoWriter_fourcc(*"mp4v"),
+        6,
+        size,
+    )
 
     # Read until video is completed
     while True:
@@ -133,9 +147,9 @@ def main():
 
             # Get Face Alignment from location
             align = norm_crop(frame, landmarks[i])
-        
+
             score, name = recognition(align)
-    
+
             if name == None:
                 continue
             else:
@@ -146,8 +160,18 @@ def main():
 
                 t_size = cv2.getTextSize(caption, cv2.FONT_HERSHEY_PLAIN, 2, 2)[0]
 
-                cv2.rectangle(frame, (x1, y1), (x1 + t_size[0], y1 + t_size[1]), (0, 146, 230), -1)
-                cv2.putText(frame, caption, (x1, y1 + t_size[1]), cv2.FONT_HERSHEY_PLAIN, 2, [255, 255, 255], 2)
+                cv2.rectangle(
+                    frame, (x1, y1), (x1 + t_size[0], y1 + t_size[1]), (0, 146, 230), -1
+                )
+                cv2.putText(
+                    frame,
+                    caption,
+                    (x1, y1 + t_size[1]),
+                    cv2.FONT_HERSHEY_PLAIN,
+                    2,
+                    [255, 255, 255],
+                    2,
+                )
 
         # Count fps
         frame_count += 1
@@ -160,7 +184,9 @@ def main():
 
         if fps > 0:
             fps_label = "FPS: %.2f" % fps
-            cv2.putText(frame, fps_label, (10, 25), cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 0, 255), 2)
+            cv2.putText(
+                frame, fps_label, (10, 25), cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 0, 255), 2
+            )
 
         video.write(frame)
         cv2.imshow("Face Recognition", frame)
@@ -173,6 +199,7 @@ def main():
     cap.release()
     cv2.destroyAllWindows()
     cv2.waitKey(0)
+
 
 if __name__ == "__main__":
     main()

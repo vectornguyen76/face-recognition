@@ -2,9 +2,9 @@ import time
 
 import cv2
 
+from face_alignment.utils import norm_crop
 from face_detection.scrfd.detector import SCRFD
 from face_detection.yolov5_face.detector import Yolov5Face
-from face_alignment.utils import norm_crop
 
 # Initialize the face detector
 # detector = Yolov5Face(model_file="face_detection/yolov5_face/yolov5n-0.5.pt")
@@ -49,7 +49,6 @@ def main():
 
             # Draw facial landmarks
             for id, key_point in enumerate(landmarks[i]):
-                
                 cv2.circle(frame, tuple(key_point), tl + 1, clors[id], -1)
             print("key_point", landmarks[i])
             align = norm_crop(frame, landmarks[i])
