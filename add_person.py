@@ -1,9 +1,10 @@
-import torch
-import cv2
-import numpy as np
 import argparse
 import os
 import shutil
+
+import cv2
+import numpy as np
+import torch
 from torchvision import transforms
 
 from face_alignment.utils import compare_encodings, norm_crop
@@ -15,7 +16,9 @@ from face_recognition.arcface.model import iresnet18
 detector = SCRFD(model_file="face_detection/scrfd/weights/scrfd_2.5g_bnkps.onnx")
 
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-weight = torch.load("face_recognition/arcface/weights/arcface_r18.pth", map_location=device)
+weight = torch.load(
+    "face_recognition/arcface/weights/arcface_r18.pth", map_location=device
+)
 model_emb = iresnet18()
 
 model_emb.load_state_dict(weight)
@@ -36,10 +39,11 @@ def read_features(feature_path):
     except:
         return None
 
+
 def get_feature(face_image, training=True):
     face_preprocess = transforms.Compose(
         [
-            transforms.ToTensor(), 
+            transforms.ToTensor(),
             transforms.Resize((112, 112)),
             transforms.Normalize(mean=[0.5, 0.5, 0.5], std=[0.5, 0.5, 0.5]),
         ]
@@ -61,6 +65,7 @@ def get_feature(face_image, training=True):
     # Convert to array
     images_emb = emb_img_face / np.linalg.norm(emb_img_face)
     return images_emb
+
 
 def add_person(backup_dir, add_person_dir, faces_save_dir, features_path):
     # Init results output
@@ -107,10 +112,8 @@ def add_person(backup_dir, add_person_dir, faces_save_dir, features_path):
     images_emb = np.array(images_emb)
     images_name = np.array(images_name)
 
-
-    
     features = read_features(features_path)
-    
+
     if features != None:
         # Read features
         old_images_name, old_images_emb = features
@@ -128,6 +131,7 @@ def add_person(backup_dir, add_person_dir, faces_save_dir, features_path):
     for sub_dir in os.listdir(add_person_dir):
         dir_to_move = os.path.join(add_person_dir, sub_dir)
         shutil.move(dir_to_move, backup_dir, copy_function=shutil.copytree)
+
 
 def parse_opt():
     parser = argparse.ArgumentParser()

@@ -138,16 +138,18 @@ class Yolov5Face(object):
         with torch.no_grad():
             pred = self.model(img[None, :])[0]
 
-        scale = min(img.shape[1] / float(image.shape[0]), img.shape[2] / float(image.shape[1]))
-        
+        scale = min(
+            img.shape[1] / float(image.shape[0]), img.shape[2] / float(image.shape[1])
+        )
+
         # Apply NMS
         det = non_max_suppression_face(pred, self.conf_thres, self.iou_thres)[0]
-        
+
         bboxes = scale_coords(img.shape[1:], det[:, :4], image.shape)
         scores = det[:, 4:5]
         outputs = torch.cat((bboxes, scores), dim=1)
-        outputs[:, : 4] *= scale
-        
+        outputs[:, :4] *= scale
+
         bboxes = np.int32(bboxes.round().cpu().numpy())
 
         landmarks = np.int32(
@@ -156,6 +158,5 @@ class Yolov5Face(object):
             .cpu()
             .numpy()
         )
-        
-        return outputs, img_info, bboxes, landmarks
 
+        return outputs, img_info, bboxes, landmarks

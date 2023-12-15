@@ -1,8 +1,10 @@
 import os.path as osp
+
 import cv2
 import numpy as np
 import onnxruntime
 import torch
+
 
 def softmax(z):
     assert len(z.shape) == 2
@@ -277,10 +279,10 @@ class SCRFD:
             det = det[bindex, :]
             if kpss is not None:
                 kpss = kpss[bindex, :]
-                
+
         bboxes = np.int32(det)
         landmarks = np.int32(kpss)
-                
+
         return bboxes, landmarks
 
     def detect_tracking(
@@ -292,7 +294,7 @@ class SCRFD:
         img_info["height"] = height
         img_info["width"] = width
         img_info["raw_img"] = image
-        
+
         input_size = self.input_size if input_size is None else input_size
 
         im_ratio = float(image.shape[0]) / image.shape[1]
@@ -346,9 +348,8 @@ class SCRFD:
             det = det[bindex, :]
             if kpss is not None:
                 kpss = kpss[bindex, :]
-                
+
         bboxes = np.int32(det / det_scale)
         landmarks = np.int32(kpss / det_scale)
-                
-        return torch.tensor(det), img_info, bboxes, landmarks 
-    
+
+        return torch.tensor(det), img_info, bboxes, landmarks

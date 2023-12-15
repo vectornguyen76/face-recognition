@@ -1,11 +1,13 @@
-import cv2
-import yaml
 import time
 
+import cv2
+import yaml
+
+from face_detection.scrfd.detector import SCRFD
 from face_detection.yolov5_face.detector import Yolov5Face
 from face_tracking.tracker.byte_tracker import BYTETracker
 from face_tracking.tracker.visualize import plot_tracking
-from face_detection.scrfd.detector import SCRFD
+
 
 # Function to load a YAML configuration file
 def load_config(file_name):
@@ -25,7 +27,7 @@ def inference(detector, args):
     start_time = time.time_ns()
     frame_count = 0
     fps = -1
-    
+
     # Initialize a tracker and a timer
     tracker = BYTETracker(args=args, frame_rate=30)
     frame_id = 0
@@ -36,7 +38,7 @@ def inference(detector, args):
 
         if ret_val:
             # Perform face detection and tracking on the frame
-            outputs, img_info, bboxes, landmarks  = detector.detect_tracking(image=frame)
+            outputs, img_info, bboxes, landmarks = detector.detect_tracking(image=frame)
 
             if outputs is not None:
                 online_targets = tracker.update(
@@ -71,13 +73,13 @@ def inference(detector, args):
                 fps = 1e9 * frame_count / (time.time_ns() - start_time)
                 frame_count = 0
                 start_time = time.time_ns()
-                
+
             # # Draw bounding boxes and landmarks on the frame
             # for i in range(len(bboxes)):
             #     # Get location of the face
             #     x1, y1, x2, y2, score = bboxes[i]
             #     cv2.rectangle(online_im, (x1, y1), (x2, y2), (200, 200, 230), 2)
-        
+
             cv2.imshow("Face Tracking", online_im)
 
             # Check for user exit input
@@ -92,10 +94,13 @@ def inference(detector, args):
 def main():
     file_name = "./face_tracking/config/config_tracking.yaml"
     config_tracking = load_config(file_name)
-    detector = Yolov5Face(model_file="face_detection/yolov5_face/weights/yolov5m-face.pt")
+    detector = Yolov5Face(
+        model_file="face_detection/yolov5_face/weights/yolov5m-face.pt"
+    )
     # detector = SCRFD(model_file="face_detection/scrfd/weights/scrfd_2.5g_bnkps.onnx")
-    
+
     inference(detector=detector, args=config_tracking)
+
 
 if __name__ == "__main__":
     main()

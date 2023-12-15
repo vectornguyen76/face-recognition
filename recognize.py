@@ -1,32 +1,39 @@
 import threading
-from queue import Queue
 import time
+from queue import Queue
+
 import cv2
 import numpy as np
 import torch
 import yaml
 from torchvision import transforms
+
 from add_person import read_features
 from face_alignment.utils import compare_encodings, norm_crop
 from face_detection.scrfd.detector import SCRFD
 from face_detection.yolov5_face.detector import Yolov5Face
+from face_recognition.arcface.model import iresnet18
 from face_tracking.tracker.byte_tracker import BYTETracker
 from face_tracking.tracker.visualize import plot_tracking
-from face_recognition.arcface.model import iresnet18
 
 face_data = {}
 # detector = Yolov5Face(model_file="face_detection/yolov5_face/weights/yolov5n-face.pt")
 detector = SCRFD(model_file="face_detection/scrfd/weights/scrfd_2.5g_bnkps.onnx")
 
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-weight = torch.load("face_recognition/arcface/weights/arcface_r18.pth", map_location=device)
+weight = torch.load(
+    "face_recognition/arcface/weights/arcface_r18.pth", map_location=device
+)
 model_emb = iresnet18()
 
 model_emb.load_state_dict(weight)
 model_emb.to(device)
 model_emb.eval()
 
-images_names, images_embs = read_features(feature_path="./datasets/face_features/feature")
+images_names, images_embs = read_features(
+    feature_path="./datasets/face_features/feature"
+)
+
 
 # Function to load a YAML configuration file
 def load_config(file_name):
@@ -39,9 +46,7 @@ def load_config(file_name):
 
 def track(frame, detector, tracker, args, frame_id, fps):
     # Perform face detection and tracking on the frame
-    outputs, img_info, bboxes, landmarks = detector.detect_tracking(
-        image=frame
-    )
+    outputs, img_info, bboxes, landmarks = detector.detect_tracking(image=frame)
 
     online_tlwhs = []
     online_ids = []
@@ -76,7 +81,16 @@ def track(frame, detector, tracker, args, frame_id, fps):
     else:
         online_im = img_info["raw_img"]
 
-    return online_bboxes, online_im, online_tlwhs, online_ids, img_info["raw_img"], bboxes, landmarks
+    return (
+        online_bboxes,
+        online_im,
+        online_tlwhs,
+        online_ids,
+        img_info["raw_img"],
+        bboxes,
+        landmarks,
+    )
+
 
 def get_feature(face_image):
     face_preprocess = transforms.Compose(
@@ -86,7 +100,7 @@ def get_feature(face_image):
             transforms.Normalize(mean=[0.5, 0.5, 0.5], std=[0.5, 0.5, 0.5]),
         ]
     )
-    
+
     # Convert to RGB
     face_image = cv2.cvtColor(face_image, cv2.COLOR_BGR2RGB)
 
@@ -99,7 +113,7 @@ def get_feature(face_image):
 
     # Convert to array
     images_emb = emb_img_face / np.linalg.norm(emb_img_face)
-    
+
     return images_emb
 
 
@@ -122,7 +136,9 @@ def mapping_bbox(box1, box2):
     x_max_inter = min(box1[2], box2[2])
     y_max_inter = min(box1[3], box2[3])
 
-    intersection_area = max(0, x_max_inter - x_min_inter + 1) * max(0, y_max_inter - y_min_inter + 1)
+    intersection_area = max(0, x_max_inter - x_min_inter + 1) * max(
+        0, y_max_inter - y_min_inter + 1
+    )
 
     # Calculate the area of each bounding box
     area_box1 = (box1[2] - box1[0] + 1) * (box1[3] - box1[1] + 1)
@@ -136,34 +152,41 @@ def mapping_bbox(box1, box2):
 
     return iou
 
+
 # thread 1
 def inference(detector, args, frame_queue):
     # Initialize variables for measuring frame rate
     start_time = time.time_ns()
     frame_count = 0
     fps = -1
-    
+
     # Initialize a tracker and a timer
     tracker = BYTETracker(args=args, frame_rate=30)
     frame_id = 0
 
     cap = cv2.VideoCapture(0)
-    
+
     while True:
         ret, img = cap.read()
 
-        online_bboxes, online_frame, online_tlwhs, online_ids, raw_image, bboxes, landmarks = track(
-            img, detector, tracker, args, frame_id, fps
-        )
+        (
+            online_bboxes,
+            online_frame,
+            online_tlwhs,
+            online_ids,
+            raw_image,
+            bboxes,
+            landmarks,
+        ) = track(img, detector, tracker, args, frame_id, fps)
         frame_queue.put((raw_image, online_ids, bboxes, landmarks, online_bboxes))
-        
+
         # Calculate and display the frame rate
         frame_count += 1
         if frame_count >= 30:
             fps = 1e9 * frame_count / (time.time_ns() - start_time)
             frame_count = 0
             start_time = time.time_ns()
-    
+
         cv2.imshow("Face Recognition", online_frame)
 
         # Check for user exit input
@@ -171,11 +194,12 @@ def inference(detector, args, frame_queue):
         if ch == 27 or ch == ord("q") or ch == ord("Q"):
             break
 
+
 # thread 2
 def recognize(frame_queue):
     while True:
         raw_image, online_ids, bboxes, landmarks, online_bboxes = frame_queue.get()
-        
+
         for i in range(len(online_bboxes)):
             for j in range(len(bboxes)):
                 mapping_score = mapping_bbox(online_bboxes[i], bboxes[j])
@@ -194,6 +218,7 @@ def recognize(frame_queue):
                     bboxes = np.delete(bboxes, j, axis=0)
                     landmarks = np.delete(landmarks, j, axis=0)
                     break
+
 
 def main():
     file_name = "./face_tracking/config/config_tracking.yaml"

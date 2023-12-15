@@ -1,14 +1,16 @@
 import os
 import sys
+
+import kalman_filter
 import numpy as np
 from scipy.optimize import linear_sum_assignment
 from scipy.spatial.distance import cdist
-import kalman_filter
 
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 sys.path.append(BASE_DIR)
 
 # Other function definitions remain the same
+
 
 def linear_assignment(cost_matrix, thresh):
     if cost_matrix.size == 0:
@@ -19,11 +21,14 @@ def linear_assignment(cost_matrix, thresh):
         )
 
     row_ind, col_ind = linear_sum_assignment(cost_matrix)
-    matches = np.array([[r, c] for r, c in zip(row_ind, col_ind) if cost_matrix[r, c] <= thresh])
+    matches = np.array(
+        [[r, c] for r, c in zip(row_ind, col_ind) if cost_matrix[r, c] <= thresh]
+    )
     unmatched_a = np.array([i for i in range(cost_matrix.shape[0]) if i not in row_ind])
     unmatched_b = np.array([i for i in range(cost_matrix.shape[1]) if i not in col_ind])
 
     return matches, tuple(unmatched_a), tuple(unmatched_b)
+
 
 def bbox_iou(box1, box2):
     """
@@ -52,6 +57,7 @@ def bbox_iou(box1, box2):
 
     return iou
 
+
 def ious(atlbrs, btlbrs):
     """
     Compute cost based on IoU
@@ -65,6 +71,7 @@ def ious(atlbrs, btlbrs):
         for j, box2 in enumerate(btlbrs):
             ious[i, j] = bbox_iou(box1, box2)
     return ious
+
 
 def iou_distance(atracks, btracks):
     """
@@ -189,4 +196,3 @@ def fuse_score(cost_matrix, detections):
     fuse_sim = iou_sim * det_scores
     fuse_cost = 1 - fuse_sim
     return fuse_cost
-
