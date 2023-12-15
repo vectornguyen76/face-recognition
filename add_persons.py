@@ -59,13 +59,13 @@ def get_feature(face_image):
     return images_emb
 
 
-def add_person(backup_dir, add_person_dir, faces_save_dir, features_path):
+def add_persons(backup_dir, add_persons_dir, faces_save_dir, features_path):
     """
     Add a new person to the face recognition database.
 
     Args:
         backup_dir (str): Directory to save backup data.
-        add_person_dir (str): Directory containing images of the new person.
+        add_persons_dir (str): Directory containing images of the new person.
         faces_save_dir (str): Directory to save the extracted faces.
         features_path (str): Path to save face features.
     """
@@ -74,8 +74,8 @@ def add_person(backup_dir, add_person_dir, faces_save_dir, features_path):
     images_emb = []
 
     # Read the folder with images of the new person, extract faces, and save them
-    for name_person in os.listdir(add_person_dir):
-        person_image_path = os.path.join(add_person_dir, name_person)
+    for name_person in os.listdir(add_persons_dir):
+        person_image_path = os.path.join(add_persons_dir, name_person)
 
         # Create a directory to save the faces of the person
         person_face_path = os.path.join(faces_save_dir, name_person)
@@ -135,8 +135,8 @@ def add_person(backup_dir, add_person_dir, faces_save_dir, features_path):
     np.savez_compressed(features_path, images_name=images_name, images_emb=images_emb)
 
     # Move the data of the new person to the backup data directory
-    for sub_dir in os.listdir(add_person_dir):
-        dir_to_move = os.path.join(add_person_dir, sub_dir)
+    for sub_dir in os.listdir(add_persons_dir):
+        dir_to_move = os.path.join(add_persons_dir, sub_dir)
         shutil.move(dir_to_move, backup_dir, copy_function=shutil.copytree)
 
     print("Successfully added new person!")
@@ -152,10 +152,10 @@ if __name__ == "__main__":
         help="Directory to save person data.",
     )
     parser.add_argument(
-        "--add-person-dir",
+        "--add-persons-dir",
         type=str,
-        default="./datasets/new_person",
-        help="Directory to add new person.",
+        default="./datasets/new_persons",
+        help="Directory to add new persons.",
     )
     parser.add_argument(
         "--faces-save-dir",
@@ -172,4 +172,4 @@ if __name__ == "__main__":
     opt = parser.parse_args()
 
     # Run the main function
-    add_person(**vars(opt))
+    add_persons(**vars(opt))
