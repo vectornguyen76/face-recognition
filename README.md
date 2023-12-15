@@ -12,18 +12,6 @@
    conda activate face-dev
    ```
 
-   Install lap
-
-   ```
-   sudo apt install g++
-   ```
-
-   Install OpenCV
-
-   ```
-   sudo apt install libgl1-mesa-glx
-   ```
-
    ```shell
    pip install torch==1.9.1+cpu torchvision==0.10.1+cpu torchaudio==0.9.1 -f https://download.pytorch.org/whl/torch_stable.html
    pip install -r requirements.txt

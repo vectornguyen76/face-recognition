@@ -1,7 +1,3 @@
-#!/usr/bin/env python3
-# -*- coding:utf-8 -*-
-# Copyright (c) 2014-2021 Megvii Inc. All rights reserved.
-
 import cv2
 import numpy as np
 
@@ -51,7 +47,7 @@ def get_color(idx):
 
 
 def plot_tracking(
-    image, tlwhs, obj_ids, scores=None, frame_id=0, fps=0.0, ids2=None, names=None
+    image, tlwhs, obj_ids, scores=None, frame_id=0, fps=0.0, ids2=None, names=[]
 ):
     im = np.ascontiguousarray(np.copy(image))
     im_h, im_w = im.shape[:2]
@@ -78,13 +74,11 @@ def plot_tracking(
 
     for i, tlwh in enumerate(tlwhs):
         x1, y1, w, h = tlwh
-        # intbox = tuple(map(int, (x1-w/2, y1, x1 + w/2, y1+ h)))
         intbox = tuple(map(int, (x1, y1, x1 + w, y1 + h)))
-
         obj_id = int(obj_ids[i])
         id_text = "{}".format(int(obj_id))
         if (obj_id) in names:
-            id_text = id_text + " name " + names[obj_id]
+            id_text = id_text + ": " + names[obj_id]
         if ids2 is not None:
             id_text = id_text + ", {}".format(int(ids2[i]))
         color = get_color(abs(obj_id))

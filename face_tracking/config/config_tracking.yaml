@@ -1,6 +1,3 @@
-input_tupe: camera
-input_path: 0 #face_tracking/videos/face.mp4
-output_path: face_tracking/outputs
 device: cpu
 fps: 30
 match_thresh: 0.8
@@ -11,10 +8,3 @@ track_thresh: 0.5
 aspect_ratio_thresh: 1.6
 ckpt: bytetrack_s_mot17.pth.tar
 fp16: True
-# fuse : True
-# mot20 : False
-# name :
-# nms :
-# trt : False
-# tsize :
-# conf :

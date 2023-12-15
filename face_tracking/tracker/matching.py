@@ -1,13 +1,12 @@
 import os
 import sys
 import numpy as np
-import scipy
 from scipy.optimize import linear_sum_assignment
 from scipy.spatial.distance import cdist
+import kalman_filter
 
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 sys.path.append(BASE_DIR)
-import kalman_filter
 
 # Other function definitions remain the same
 

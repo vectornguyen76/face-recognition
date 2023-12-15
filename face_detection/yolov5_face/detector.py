@@ -5,7 +5,6 @@ import cv2
 import numpy as np
 import torch
 
-# Define the base directory
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 sys.path.append(BASE_DIR)
 
@@ -105,7 +104,7 @@ class Yolov5Face(object):
 
         # Apply NMS
         det = non_max_suppression_face(pred, self.conf_thres, self.iou_thres)[0]
-        bboxs = np.int32(
+        bboxes = np.int32(
             scale_coords(img.shape[1:], det[:, :5], image.shape).round().cpu().numpy()
         )
 
@@ -116,14 +115,13 @@ class Yolov5Face(object):
             .numpy()
         )
 
-        return bboxs, landmarks
+        return bboxes, landmarks
 
-    def detect_tracking(self, image, timer):
+    def detect_tracking(self, image):
         """
         Perform object tracking on the input image.
 
         :param input_image: The input image for object tracking.
-        :param timer: Timer for tracking performance.
 
         :return: Tracking results and image information.
         """
@@ -138,18 +136,19 @@ class Yolov5Face(object):
 
         # Via yolov5-face
         with torch.no_grad():
-            timer.tic()
-            outputs = self.model(img[None, :])[0]
+            pred = self.model(img[None, :])[0]
 
-        pred = outputs
-        outputs = non_max_suppression_face(outputs, self.conf_thres, self.iou_thres)
-        outputs[0] = outputs[0][:, :5]
-
+        scale = min(img.shape[1] / float(image.shape[0]), img.shape[2] / float(image.shape[1]))
+        
         # Apply NMS
         det = non_max_suppression_face(pred, self.conf_thres, self.iou_thres)[0]
-        bboxs = np.int32(
-            scale_coords(img.shape[1:], det[:, :5], image.shape).round().cpu().numpy()
-        )
+        
+        bboxes = scale_coords(img.shape[1:], det[:, :4], image.shape)
+        scores = det[:, 4:5]
+        outputs = torch.cat((bboxes, scores), dim=1)
+        outputs[:, : 4] *= scale
+        
+        bboxes = np.int32(bboxes.round().cpu().numpy())
 
         landmarks = np.int32(
             self.scale_coords_landmarks(img.shape[1:], det[:, 5:15], image.shape)
@@ -157,5 +156,6 @@ class Yolov5Face(object):
             .cpu()
             .numpy()
         )
+        
+        return outputs, img_info, bboxes, landmarks
 
-        return outputs, img_info

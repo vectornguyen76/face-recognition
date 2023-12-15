@@ -1,10 +1,8 @@
 import os.path as osp
-import time
-
 import cv2
 import numpy as np
 import onnxruntime
-
+import torch
 
 def softmax(z):
     assert len(z.shape) == 2
@@ -165,24 +163,9 @@ class SCRFD:
             if key in self.center_cache:
                 anchor_centers = self.center_cache[key]
             else:
-                # solution-1, c style:
-                # anchor_centers = np.zeros( (height, width, 2), dtype=np.float32 )
-                # for i in range(height):
-                #    anchor_centers[i, :, 1] = i
-                # for i in range(width):
-                #    anchor_centers[:, i, 0] = i
-
-                # solution-2:
-                # ax = np.arange(width, dtype=np.float32)
-                # ay = np.arange(height, dtype=np.float32)
-                # xv, yv = np.meshgrid(np.arange(width), np.arange(height))
-                # anchor_centers = np.stack([xv, yv], axis=-1).astype(np.float32)
-
-                # solution-3:
                 anchor_centers = np.stack(
                     np.mgrid[:height, :width][::-1], axis=-1
                 ).astype(np.float32)
-                # print(anchor_centers.shape)
 
                 anchor_centers = (anchor_centers * stride).reshape((-1, 2))
                 if self._num_anchors > 1:
@@ -205,6 +188,36 @@ class SCRFD:
                 pos_kpss = kpss[pos_inds]
                 kpss_list.append(pos_kpss)
         return scores_list, bboxes_list, kpss_list
+
+    def nms(self, dets):
+        thresh = self.nms_thresh
+        x1 = dets[:, 0]
+        y1 = dets[:, 1]
+        x2 = dets[:, 2]
+        y2 = dets[:, 3]
+        scores = dets[:, 4]
+
+        areas = (x2 - x1 + 1) * (y2 - y1 + 1)
+        order = scores.argsort()[::-1]
+
+        keep = []
+        while order.size > 0:
+            i = order[0]
+            keep.append(i)
+            xx1 = np.maximum(x1[i], x1[order[1:]])
+            yy1 = np.maximum(y1[i], y1[order[1:]])
+            xx2 = np.minimum(x2[i], x2[order[1:]])
+            yy2 = np.minimum(y2[i], y2[order[1:]])
+
+            w = np.maximum(0.0, xx2 - xx1 + 1)
+            h = np.maximum(0.0, yy2 - yy1 + 1)
+            inter = w * h
+            ovr = inter / (areas[i] + areas[order[1:]] - inter)
+
+            inds = np.where(ovr <= thresh)[0]
+            order = order[inds + 1]
+
+        return keep
 
     def detect(
         self, image, thresh=0.5, input_size=(128, 128), max_num=0, metric="default"
@@ -264,94 +277,78 @@ class SCRFD:
             det = det[bindex, :]
             if kpss is not None:
                 kpss = kpss[bindex, :]
-        return np.int32(det), np.int32(kpss)
+                
+        bboxes = np.int32(det)
+        landmarks = np.int32(kpss)
+                
+        return bboxes, landmarks
 
-    def nms(self, dets):
-        thresh = self.nms_thresh
-        x1 = dets[:, 0]
-        y1 = dets[:, 1]
-        x2 = dets[:, 2]
-        y2 = dets[:, 3]
-        scores = dets[:, 4]
+    def detect_tracking(
+        self, image, thresh=0.5, input_size=(128, 128), max_num=0, metric="default"
+    ):
+        assert input_size is not None or self.input_size is not None
+        height, width = image.shape[:2]
+        img_info = {"id": 0}
+        img_info["height"] = height
+        img_info["width"] = width
+        img_info["raw_img"] = image
+        
+        input_size = self.input_size if input_size is None else input_size
 
-        areas = (x2 - x1 + 1) * (y2 - y1 + 1)
-        order = scores.argsort()[::-1]
+        im_ratio = float(image.shape[0]) / image.shape[1]
+        model_ratio = float(input_size[1]) / input_size[0]
+        if im_ratio > model_ratio:
+            new_height = input_size[1]
+            new_width = int(new_height / im_ratio)
+        else:
+            new_width = input_size[0]
+            new_height = int(new_width * im_ratio)
+        det_scale = float(new_height) / image.shape[0]
+        resized_img = cv2.resize(image, (new_width, new_height))
+        det_img = np.zeros((input_size[1], input_size[0], 3), dtype=np.uint8)
+        det_img[:new_height, :new_width, :] = resized_img
 
-        keep = []
-        while order.size > 0:
-            i = order[0]
-            keep.append(i)
-            xx1 = np.maximum(x1[i], x1[order[1:]])
-            yy1 = np.maximum(y1[i], y1[order[1:]])
-            xx2 = np.minimum(x2[i], x2[order[1:]])
-            yy2 = np.minimum(y2[i], y2[order[1:]])
+        scores_list, bboxes_list, kpss_list = self.forward(det_img, thresh)
 
-            w = np.maximum(0.0, xx2 - xx1 + 1)
-            h = np.maximum(0.0, yy2 - yy1 + 1)
-            inter = w * h
-            ovr = inter / (areas[i] + areas[order[1:]] - inter)
-
-            inds = np.where(ovr <= thresh)[0]
-            order = order[inds + 1]
-
-        return keep
-
-
-if __name__ == "__main__":
-    detector = SCRFD(model_file="./weights/scrfd_2.5g_bnkps.onnx")
-    # detector.prepare(-1)
-
-    # Open camera
-    cap = cv2.VideoCapture(0)
-    start = time.time_ns()
-    frame_count = 0
-    fps = -1
-
-    # Read until video is completed
-    while True:
-        # Capture frame-by-frame
-        _, frame = cap.read()
-
-        # Get faces
-        bboxes, kpss = detector.detect(frame, 0.5, input_size=(128, 128))
-
-        h, w, c = frame.shape
-
-        tl = 1 or round(0.002 * (h + w) / 2) + 1  # line/font thickness
-        clors = [(255, 0, 0), (0, 255, 0), (0, 0, 255), (255, 255, 0), (0, 255, 255)]
-
-        for i in range(bboxes.shape[0]):
-            bbox = bboxes[i]
-            x1, y1, x2, y2, score = bbox.astype(np.int_)
-            cv2.rectangle(frame, (x1, y1), (x2, y2), (255, 0, 0), 2)
-            if kpss is not None:
-                kps = kpss[i]
-                for kp in kps:
-                    kp = kp.astype(np.int_)
-                    cv2.circle(frame, tuple(kp), 1, (0, 0, 255), 2)
-
-        # Count fps
-        frame_count += 1
-
-        if frame_count >= 30:
-            end = time.time_ns()
-            fps = 1e9 * frame_count / (end - start)
-            frame_count = 0
-            start = time.time_ns()
-
-        if fps > 0:
-            fps_label = "FPS: %.2f" % fps
-            cv2.putText(
-                frame, fps_label, (10, 25), cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 0, 255), 2
+        scores = np.vstack(scores_list)
+        scores_ravel = scores.ravel()
+        order = scores_ravel.argsort()[::-1]
+        bboxes = np.vstack(bboxes_list)
+        if self.use_kps:
+            kpss = np.vstack(kpss_list)
+        pre_det = np.hstack((bboxes, scores)).astype(np.float32, copy=False)
+        pre_det = pre_det[order, :]
+        keep = self.nms(pre_det)
+        det = pre_det[keep, :]
+        if self.use_kps:
+            kpss = kpss[order, :, :]
+            kpss = kpss[keep, :, :]
+        else:
+            kpss = None
+        if max_num > 0 and det.shape[0] > max_num:
+            area = (det[:, 2] - det[:, 0]) * (det[:, 3] - det[:, 1])
+            img_center = image.shape[0] // 2, image.shape[1] // 2
+            offsets = np.vstack(
+                [
+                    (det[:, 0] + det[:, 2]) / 2 - img_center[1],
+                    (det[:, 1] + det[:, 3]) / 2 - img_center[0],
+                ]
             )
-
-        # Show result
-        cv2.imshow("Face Detection", frame)
-
-        # Press Q on keyboard to  exit
-        if cv2.waitKey(25) & 0xFF == ord("q"):
-            break
-
-    cap.release()
-    cv2.destroyAllWindows()
-    cv2.waitKey(0)
+            offset_dist_squared = np.sum(np.power(offsets, 2.0), 0)
+            if metric == "max":
+                values = area
+            else:
+                values = (
+                    area - offset_dist_squared * 2.0
+                )  # some extra weight on the centering
+            bindex = np.argsort(values)[::-1]  # some extra weight on the centering
+            bindex = bindex[0:max_num]
+            det = det[bindex, :]
+            if kpss is not None:
+                kpss = kpss[bindex, :]
+                
+        bboxes = np.int32(det / det_scale)
+        landmarks = np.int32(kpss / det_scale)
+                
+        return torch.tensor(det), img_info, bboxes, landmarks 
+    

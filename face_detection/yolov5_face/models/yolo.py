@@ -360,7 +360,7 @@ class Model(nn.Module):
     #             print('%10.3g' % (m.w.detach().sigmoid() * 2))  # shortcut weights
 
     def fuse(self):  # fuse model Conv2d() + BatchNorm2d() layers
-        print("Fusing layers... ")
+        # print("Fusing layers... ")
         for m in self.model.modules():
             if type(m) is Conv and hasattr(m, "bn"):
                 m.conv = fuse_conv_and_bn(m.conv, m.bn)  # update conv

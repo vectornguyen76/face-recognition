@@ -7,8 +7,8 @@ from face_detection.scrfd.detector import SCRFD
 from face_detection.yolov5_face.detector import Yolov5Face
 
 # Initialize the face detector
-# detector = Yolov5Face(model_file="face_detection/yolov5_face/yolov5n-0.5.pt")
-detector = SCRFD(model_file="face_detection/scrfd/scrfd_2.5g_bnkps.onnx")
+# detector = Yolov5Face(model_file="face_detection/yolov5_face/weights/yolov5n-0.5.pt")
+detector = SCRFD(model_file="face_detection/scrfd/weights/scrfd_2.5g_bnkps.onnx")
 
 
 def main():
@@ -34,25 +34,25 @@ def main():
         _, frame = cap.read()
 
         # Get faces and landmarks using the face detector
-        bboxs, landmarks = detector.detect(image=frame)
+        bboxes, landmarks = detector.detect(image=frame)
         h, w, c = frame.shape
 
         tl = 1 or round(0.002 * (h + w) / 2) + 1  # Line and font thickness
         clors = [(255, 0, 0), (0, 255, 0), (0, 0, 255), (255, 255, 0), (0, 255, 255)]
 
         # Draw bounding boxes and landmarks on the frame
-        for i in range(len(bboxs)):
+        for i in range(len(bboxes)):
             # Get location of the face
-            x1, y1, x2, y2, score = bboxs[i]
+            x1, y1, x2, y2, score = bboxes[i]
             face = frame[y1:y2, x1:x2]
             cv2.rectangle(frame, (x1, y1), (x2, y2), (0, 146, 230), 2)
 
             # Draw facial landmarks
             for id, key_point in enumerate(landmarks[i]):
                 cv2.circle(frame, tuple(key_point), tl + 1, clors[id], -1)
-            print("key_point", landmarks[i])
+            # print("key_point", landmarks[i])
             align = norm_crop(frame, landmarks[i])
-            print("alinn", align)
+            # print("alinn", align)
 
         # Calculate and display the frame rate
         frame_count += 1
