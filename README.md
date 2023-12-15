@@ -107,7 +107,12 @@ pip install -r requirements.txt
 ### Face Tracking
 
 1. **ByteTrack**
-   - ByteTrack is a sophisticated face tracking algorithm that excels in tracking faces across consecutive frames. It ensures the robust and accurate tracking of individuals in real-time video streams.
+
+   <p align="center">
+   <img src="./assets/bytetrack.png" alt="ByteTrack" />
+   <br>
+   <em>ByteTrack is a simple, fast and strong multi-object tracker.</em>
+   </p>
 
 ### Matching Algorithm
 
@@ -123,6 +128,7 @@ pip install -r requirements.txt
 
 ## Reference
 
+- [ByteTrack](https://github.com/ifzhang/ByteTrack)
 - [Yolov5-face](https://github.com/deepcam-cn/yolov5-face)
 - [InsightFace - ArcFace](https://github.com/deepinsight/insightface/tree/master/recognition/arcface_torch)
 - [InsightFace-REST](https://github.com/SthPhoenix/InsightFace-REST)
