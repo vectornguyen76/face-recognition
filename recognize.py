@@ -1,256 +1,243 @@
-#pytorch
-from concurrent.futures import thread
-from sqlalchemy import null
-import torch
-from torchvision import transforms
+import threading
 import time
-from threading import Thread
+from queue import Queue
 
-#other lib
-import sys
-import numpy as np
-import os
 import cv2
+import numpy as np
+import torch
+import yaml
+from torchvision import transforms
 
-sys.path.insert(0, "yolov5_face")
-from models.experimental import attempt_load
-from utils.datasets import letterbox
-from utils.general import check_img_size, non_max_suppression_face, scale_coords
+from face_alignment.alignment import norm_crop
+from face_detection.scrfd.detector import SCRFD
+from face_detection.yolov5_face.detector import Yolov5Face
+from face_recognition.arcface.model import iresnet34_inference
+from face_recognition.arcface.utils import compare_encodings, read_features
+from face_tracking.tracker.byte_tracker import BYTETracker
+from face_tracking.tracker.visualize import plot_tracking
 
-# Check device
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
-# Get model detect
-## Case 1:
-# model = attempt_load("yolov5_face/yolov5s-face.pt", map_location=device)
+# detector = Yolov5Face(model_file="face_detection/yolov5_face/weights/yolov5n-face.pt")
+detector = SCRFD(model_file="face_detection/scrfd/weights/scrfd_2.5g_bnkps.onnx")
 
-## Case 2:
-model = attempt_load("yolov5_face/yolov5n-0.5.pt", map_location=device)
+recognizer = iresnet34_inference(
+    path="face_recognition/arcface/weights/arcface_r34.pth", device=device
+)
 
-# Get model recognition
-## Case 1: 
-from insightface.insight_face import iresnet100
-weight = torch.load("insightface/resnet100_backbone.pth", map_location = device)
-model_emb = iresnet100()
+images_names, images_embs = read_features(feature_path="./datasets/face_features/feature")
 
-## Case 2: 
-# from insightface.insight_face import iresnet18
-# weight = torch.load("insightface/resnet18_backbone.pth", map_location = device)
-# model_emb = iresnet18()
+id_face_mapping = {}
 
-model_emb.load_state_dict(weight)
-model_emb.to(device)
-model_emb.eval()
 
-face_preprocess = transforms.Compose([
-                                    transforms.ToTensor(), # input PIL => (3,56,56), /255.0
-                                    transforms.Resize((112, 112)),
-                                    transforms.Normalize(mean=[0.5, 0.5, 0.5], std=[0.5, 0.5, 0.5])
-                                    ])
+# Function to load a YAML configuration file
+def load_config(file_name):
+    with open(file_name, "r") as stream:
+        try:
+            return yaml.safe_load(stream)
+        except yaml.YAMLError as exc:
+            print(exc)
 
-isThread = True
-score = 0
-name = null
 
-# Resize image
-def resize_image(img0, img_size):
-    h0, w0 = img0.shape[:2]  # orig hw
-    r = img_size / max(h0, w0)  # resize image to img_size
+def process_tracking(frame, detector, tracker, args, frame_id, fps):
+    # Perform face detection and tracking on the frame
+    outputs, img_info, bboxes, landmarks = detector.detect_tracking(image=frame)
 
-    if r != 1:  # always resize down, only resize up if training with augmentation
-        interp = cv2.INTER_AREA if r < 1  else cv2.INTER_LINEAR
-        img0 = cv2.resize(img0, (int(w0 * r), int(h0 * r)), interpolation=interp)
+    tracking_tlwhs = []
+    tracking_ids = []
+    tracking_scores = []
+    tracking_bboxes = []
 
-    imgsz = check_img_size(img_size, s=model.stride.max())  # check img_size
-    img = letterbox(img0, new_shape=imgsz)[0]
+    if outputs is not None:
+        online_targets = tracker.update(
+            outputs, [img_info["height"], img_info["width"]], (128, 128)
+        )
 
-    # Convert
-    img = img[:, :, ::-1].transpose(2, 0, 1).copy()  # BGR to RGB, to 3x416x416
+        for i in range(len(online_targets)):
+            t = online_targets[i]
+            tlwh = t.tlwh
+            tid = t.track_id
+            vertical = tlwh[2] / tlwh[3] > args["aspect_ratio_thresh"]
+            if tlwh[2] * tlwh[3] > args["min_box_area"] and not vertical:
+                x1, y1, w, h = tlwh
+                tracking_bboxes.append([x1, y1, x1 + w, y1 + h])
+                tracking_tlwhs.append(tlwh)
+                tracking_ids.append(tid)
+                tracking_scores.append(t.score)
 
-    img = torch.from_numpy(img).to(device)
-    img = img.float()  # uint8 to fp16/32
-    img /= 255.0  # 0 - 255 to 0.0 - 1.0
-    
-    return img
-
-def scale_coords_landmarks(img1_shape, coords, img0_shape, ratio_pad=None):
-    # Rescale coords (xyxy) from img1_shape to img0_shape
-    if ratio_pad is None:  # calculate from img0_shape
-        gain = min(img1_shape[0] / img0_shape[0], img1_shape[1] / img0_shape[1])  # gain  = old / new
-        pad = (img1_shape[1] - img0_shape[1] * gain) / 2, (img1_shape[0] - img0_shape[0] * gain) / 2  # wh padding
+        tracking_im = plot_tracking(
+            img_info["raw_img"],
+            tracking_tlwhs,
+            tracking_ids,
+            names=id_face_mapping,
+            frame_id=frame_id + 1,
+            fps=fps,
+        )
     else:
-        gain = ratio_pad[0][0]
-        pad = ratio_pad[1]
+        tracking_im = img_info["raw_img"]
 
-    coords[:, [0, 2, 4, 6, 8]] -= pad[0]  # x padding
-    coords[:, [1, 3, 5, 7, 9]] -= pad[1]  # y padding
-    coords[:, :10] /= gain
-    #clip_coords(coords, img0_shape)
-    coords[:, 0].clamp_(0, img0_shape[1])  # x1
-    coords[:, 1].clamp_(0, img0_shape[0])  # y1
-    coords[:, 2].clamp_(0, img0_shape[1])  # x2
-    coords[:, 3].clamp_(0, img0_shape[0])  # y2
-    coords[:, 4].clamp_(0, img0_shape[1])  # x3
-    coords[:, 5].clamp_(0, img0_shape[0])  # y3
-    coords[:, 6].clamp_(0, img0_shape[1])  # x4
-    coords[:, 7].clamp_(0, img0_shape[0])  # y4
-    coords[:, 8].clamp_(0, img0_shape[1])  # x5
-    coords[:, 9].clamp_(0, img0_shape[0])  # y5
-    return coords
+    return (
+        tracking_bboxes,
+        tracking_im,
+        tracking_tlwhs,
+        tracking_ids,
+        img_info["raw_img"],
+        bboxes,
+        landmarks,
+    )
 
-def get_face(input_image):
-    # Parameters
-    size_convert = 128
-    conf_thres = 0.4
-    iou_thres = 0.5
-    
-    # Resize image
-    img = resize_image(input_image.copy(), size_convert)
 
-    # Via yolov5-face
-    with torch.no_grad():
-        pred = model(img[None, :])[0]
+def get_feature(face_image):
+    face_preprocess = transforms.Compose(
+        [
+            transforms.ToTensor(),
+            transforms.Resize((112, 112)),
+            transforms.Normalize(mean=[0.5, 0.5, 0.5], std=[0.5, 0.5, 0.5]),
+        ]
+    )
 
-    # Apply NMS
-    det = non_max_suppression_face(pred, conf_thres, iou_thres)[0]
-    bboxs = np.int32(scale_coords(img.shape[1:], det[:, :4], input_image.shape).round().cpu().numpy())
-    
-    landmarks = np.int32(scale_coords_landmarks(img.shape[1:], det[:, 5:15], input_image.shape).round().cpu().numpy())    
-    
-    return bboxs, landmarks
-
-def get_feature(face_image, training = True): 
     # Convert to RGB
     face_image = cv2.cvtColor(face_image, cv2.COLOR_BGR2RGB)
-    
+
     # Preprocessing image BGR
     face_image = face_preprocess(face_image).to(device)
-    
+
     # Via model to get feature
     with torch.no_grad():
-        if training:
-            emb_img_face = model_emb(face_image[None, :])[0].cpu().numpy()
-        else:
-            emb_img_face = model_emb(face_image[None, :]).cpu().numpy()
-    
+        emb_img_face = recognizer(face_image[None, :]).cpu().numpy()
+
     # Convert to array
-    images_emb = emb_img_face/np.linalg.norm(emb_img_face)
+    images_emb = emb_img_face / np.linalg.norm(emb_img_face)
+
     return images_emb
 
-def read_features(root_fearure_path = "static/feature/face_features.npz"):
-    data = np.load(root_fearure_path, allow_pickle=True)
-    images_name = data["arr1"]
-    images_emb = data["arr2"]
-    
-    return images_name, images_emb
 
 def recognition(face_image):
-    global isThread, score, name
-    
     # Get feature from face
-    query_emb = (get_feature(face_image, training=False))
-    
-    # Read features
-    images_names, images_embs = read_features()   
+    query_emb = get_feature(face_image)
 
-    scores = (query_emb @ images_embs.T)[0]
-
-    id_min = np.argmax(scores)
-    score = scores[id_min]
+    score, id_min = compare_encodings(query_emb, images_embs)
     name = images_names[id_min]
-    isThread = True
-    print("successful")
+    score = score[0]
 
+    return score, name
+
+
+def mapping_bbox(box1, box2):
+    # box format: (x_min, y_min, x_max, y_max)
+
+    # Calculate the intersection area
+    x_min_inter = max(box1[0], box2[0])
+    y_min_inter = max(box1[1], box2[1])
+    x_max_inter = min(box1[2], box2[2])
+    y_max_inter = min(box1[3], box2[3])
+
+    intersection_area = max(0, x_max_inter - x_min_inter + 1) * max(
+        0, y_max_inter - y_min_inter + 1
+    )
+
+    # Calculate the area of each bounding box
+    area_box1 = (box1[2] - box1[0] + 1) * (box1[3] - box1[1] + 1)
+    area_box2 = (box2[2] - box2[0] + 1) * (box2[3] - box2[1] + 1)
+
+    # Calculate the union area
+    union_area = area_box1 + area_box2 - intersection_area
+
+    # Calculate IoU
+    iou = intersection_area / union_area
+
+    return iou
+
+
+# thread 1
+def tracking(detector, args, frame_queue):
+    # Initialize variables for measuring frame rate
+    start_time = time.time_ns()
+    frame_count = 0
+    fps = -1
+
+    # Initialize a tracker and a timer
+    tracker = BYTETracker(args=args, frame_rate=30)
+    frame_id = 0
+
+    cap = cv2.VideoCapture(0)
+
+    while True:
+        ret, img = cap.read()
+
+        (
+            tracking_bboxes,
+            online_frame,
+            tracking_tlwhs,
+            tracking_ids,
+            raw_image,
+            bboxes,
+            landmarks,
+        ) = process_tracking(img, detector, tracker, args, frame_id, fps)
+
+        frame_queue.put((raw_image, tracking_ids, bboxes, landmarks, tracking_bboxes))
+
+        # Calculate and display the frame rate
+        frame_count += 1
+        if frame_count >= 30:
+            fps = 1e9 * frame_count / (time.time_ns() - start_time)
+            frame_count = 0
+            start_time = time.time_ns()
+
+        cv2.imshow("Face Recognition", online_frame)
+
+        # Check for user exit input
+        ch = cv2.waitKey(1)
+        if ch == 27 or ch == ord("q") or ch == ord("Q"):
+            break
+
+
+# thread 2
+def recognize(frame_queue):
+    while True:
+        raw_image, tracking_ids, bboxes, landmarks, tracking_bboxes = frame_queue.get()
+
+        for i in range(len(tracking_bboxes)):
+            for j in range(len(bboxes)):
+                mapping_score = mapping_bbox(tracking_bboxes[i], bboxes[j])
+                if mapping_score > 0.9:
+                    align = norm_crop(raw_image, landmarks[j])
+
+                    score, name = recognition(align)
+
+                    if name != None:
+                        if score < 0.25:
+                            caption = "UN_KNOWN"
+                        else:
+                            caption = f"{name}:{score:.2f}"
+                    id_face_mapping[tracking_ids[i]] = caption
+
+                    bboxes = np.delete(bboxes, j, axis=0)
+                    landmarks = np.delete(landmarks, j, axis=0)
+                    break
+
+        print(id_face_mapping)
 
 
 def main():
-    global isThread, score, name
-    
-    # Open camera 
-    cap = cv2.VideoCapture(0)
-    start = time.time_ns()
-    frame_count = 0
-    fps = -1
-    
-    # Save video
-    frame_width = int(cap.get(3))
-    frame_height = int(cap.get(4))
-    
-    size = (frame_width, frame_height)
-    video = cv2.VideoWriter('./static/results/face-recognition2.mp4',cv2.VideoWriter_fourcc(*'mp4v'), 6, size)
-    
-    # Read until video is completed
-    while(True):
-        # Capture frame-by-frame
-        _, frame = cap.read()
-        
-        # Get faces
-        bboxs, landmarks = get_face(frame)
-        h, w, c = frame.shape
-        
-        tl = 1 or round(0.002 * (h + w) / 2) + 1  # line/font thickness
-        clors = [(255,0,0),(0,255,0),(0,0,255),(255,255,0),(0,255,255)]
-        
-        # Get boxs
-        for i in range(len(bboxs)):
-            # Get location face
-            x1, y1, x2, y2 = bboxs[i]
-            cv2.rectangle(frame, (x1, y1), (x2, y2), (0, 146, 230), 2)
-            
-            # Landmarks
-            for x in range(5):
-                point_x = int(landmarks[i][2 * x])
-                point_y = int(landmarks[i][2 * x + 1])
-                cv2.circle(frame, (point_x, point_y), tl+1, clors[x], -1)
-            
-            # Get face from location
-            if isThread == True:
-                isThread = False
-                
-                # Recognition
-                face_image = frame[y1:y2, x1:x2]
-                thread = Thread(target=recognition, args=(face_image,))
-                thread.start()
-        
-            if name == null:
-                continue
-            else:
-                if score < 0.25:
-                    caption= "UN_KNOWN"
-                else:
-                    caption = f"{name.split('_')[0].upper()}:{score:.2f}"
+    file_name = "./face_tracking/config/config_tracking.yaml"
+    config_tracking = load_config(file_name)
 
-                t_size = cv2.getTextSize(caption, cv2.FONT_HERSHEY_PLAIN, 2, 2)[0]
-                
-                cv2.rectangle(frame, (x1, y1), (x1 + t_size[0], y1 + t_size[1]), (0, 146, 230), -1)
-                cv2.putText(frame, caption, (x1, y1 + t_size[1]), cv2.FONT_HERSHEY_PLAIN, 2, [255, 255, 255], 2)       
-            
-        
-        # Count fps 
-        frame_count += 1
-        
-        if frame_count >= 30:
-            end = time.time_ns()
-            fps = 1e9 * frame_count / (end - start)
-            frame_count = 0
-            start = time.time_ns()
-    
-        if fps > 0:
-            fps_label = "FPS: %.2f" % fps
-            cv2.putText(frame, fps_label, (10, 25), cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 0, 255), 2)
-        
-        
-        video.write(frame)
-        cv2.imshow("Face Recognition", frame)
-        
-        # Press Q on keyboard to  exit
-        if cv2.waitKey(25) & 0xFF == ord('q'):
-            break  
-    
-    video.release()
-    cap.release()
-    cv2.destroyAllWindows()
-    cv2.waitKey(0)
+    frame_queue = Queue()
 
-if __name__=="__main__":
+    thread_track = threading.Thread(
+        target=tracking,
+        args=(
+            detector,
+            config_tracking,
+            frame_queue,
+        ),
+    )
+    thread_track.start()
+
+    thread_recognize = threading.Thread(target=recognize, args=(frame_queue,))
+    thread_recognize.start()
+
+
+if __name__ == "__main__":
     main()

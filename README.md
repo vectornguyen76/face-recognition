@@ -1,54 +1,128 @@
 # Real-Time Face Recognition
-<p align="center">
-  <img src="./static/results/face-recognition.gif" alt="animated" />
-</p>
 
-# How to add 1 peason to recognize
-### Step 1: Create a folder with the folder name being the name of the person
-### Step 2: Add the person's photo in the folder
-### Step 3: Move folder to additional-training-datasets folder
-#### Example:
+   <p align="center">
+   <img src="./assets/face-recognition.gif" alt="Face Recognition" />
+   <br>
+   <em>Face Recognition</em>
+   </p>
 
-- |database
-- ----|additional-training-datasets
-- --------|name-person1
-- --------|name-person2
-- ----|face-datasets
-- ----|full-training-datasets
+## Table of Contents
 
-### Step 4: Set up with Python >= 3.7
-````
+- [How to use](#how-to-use)
+  - [Create Environment and Install Packages](#create-environment-and-install-packages)
+  - [Add new persons to datasets](#add-new-persons-to-datasets)
+- [Technology](#technology)
+  - [Face Detection](#face-detection)
+  - [Face Recognition](#face-recognition)
+  - [Face Tracking](#face-tracking)
+  - [Matching Algorithm](#matching-algorithm)
+- [Reference](#reference)
+
+## How to use
+
+### Create Environment and Install Packages
+
+```shell
+conda create -n face-dev python=3.9
+```
+
+```shell
+conda activate face-dev
+```
+
+```shell
+pip install torch==1.9.1+cpu torchvision==0.10.1+cpu torchaudio==0.9.1 -f https://download.pytorch.org/whl/torch_stable.html
 pip install -r requirements.txt
-````
-### Step 5: Run to add person
-````
-python train.py --is-add-user=True
-````
-### Step 6: Run recognize
-````
-python recognize.py
-````
-# Face Recognition use Yolov5-face, Insightface, Similarity Measure 
-<p align="center">
-  <img src="./static/results/workflow.png" alt="animated" />
-</p>
+```
 
-# Yolov5-face to dectect face
-<p align="center">
-  <img src="./static/results/face-detection.gif" alt="animated" />
-</p>
+### Add new persons to datasets
 
-# Insight Face to recognition face
-![image](https://user-images.githubusercontent.com/80930272/160270088-a3760d88-ebc8-4535-907e-6b684276755a.png)
+1. **Create a folder with the folder name being the name of the person**
 
-# Multi thread
-<p align="center">
-  <img src="https://user-images.githubusercontent.com/80930272/165548024-6d25fbe4-057f-4123-a3f9-3912cce2b73b.png" alt="animated" />
-</p>
+   ```
+   datasets/
+   ├── backup
+   ├── data
+   ├── face_features
+   └── new_persons
+       ├── name-person1
+       └── name-person2
+   ```
 
-# Cosine Similarity Algorithm
-![image](https://user-images.githubusercontent.com/80930272/160270156-37fe3269-ca65-4692-a3b2-e9568b3876f8.png)
+2. **Add the person's photo in the folder**
 
-# Reference
-- https://github.com/deepcam-cn/yolov5-face
-- https://github.com/deepinsight/insightface/tree/master/recognition/arcface_torch
+   ```
+   datasets/
+   ├── backup
+   ├── data
+   ├── face_features
+   └── new_persons
+       ├── name-person1
+       │   └── image1.jpg
+       │   └── image2.jpg
+       └── name-person2
+           └── image1.jpg
+           └── image2.jpg
+   ```
+
+3. **Run to add new persons**
+
+   ```shell
+   python add_persons.py
+   ```
+
+4. **Run to recognize**
+
+   ```shell
+   python recognize.py
+   ```
+
+## Technology
+
+### Face Detection
+
+1. **Retinaface**
+
+   - Retinaface is a powerful face detection algorithm known for its accuracy and speed. It utilizes a single deep convolutional network to detect faces in an image with high precision.
+
+2. **Yolov5-face**
+
+   - Yolov5-face is based on the YOLO (You Only Look Once) architecture, specializing in face detection. It provides real-time face detection with a focus on efficiency and accuracy.
+
+3. **SCRFD**
+   - SCRFD (Single-Shot Scale-Aware Face Detector) is designed for real-time face detection across various scales. It is particularly effective in detecting faces at different resolutions within the same image.
+
+### Face Recognition
+
+1. **ArcFace**
+
+   - ArcFace is a state-of-the-art face recognition algorithm that focuses on learning highly discriminative features for face verification and identification. It is known for its robustness to variations in lighting, pose, and facial expressions.
+
+   <p align="center">
+   <img src="https://user-images.githubusercontent.com/80930272/160270088-a3760d88-ebc8-4535-907e-6b684276755a.png" alt="ArcFace" />
+   <br>
+   <em>ArcFace</em>
+   </p>
+
+### Face Tracking
+
+1. **ByteTrack**
+   - ByteTrack is a sophisticated face tracking algorithm that excels in tracking faces across consecutive frames. It ensures the robust and accurate tracking of individuals in real-time video streams.
+
+### Matching Algorithm
+
+1. **Cosine Similarity Algorithm**
+
+   - The Cosine Similarity Algorithm is employed for matching faces based on the cosine of the angle between their feature vectors. It measures the similarity between two faces' feature representations, providing an effective approach for face recognition.
+
+   <p align="center">
+   <img src="https://user-images.githubusercontent.com/80930272/160270156-37fe3269-ca65-4692-a3b2-e9568b3876f8.png" alt="Cosine Similarity Algorithm" />
+   <br>
+   <em>Cosine Similarity Algorithm</em>
+   </p>
+
+## Reference
+
+- [Yolov5-face](https://github.com/deepcam-cn/yolov5-face)
+- [InsightFace - ArcFace](https://github.com/deepinsight/insightface/tree/master/recognition/arcface_torch)
+- [InsightFace-REST](https://github.com/SthPhoenix/InsightFace-REST)
