@@ -202,25 +202,44 @@ def _iresnet(arch, block, layers, pretrained, progress, **kwargs):
     return model
 
 
+
 def iresnet18(pretrained=False, progress=True, **kwargs):
-    return _iresnet(
-        "iresnet18", IBasicBlock, [2, 2, 2, 2], pretrained, progress, **kwargs
-    )
+    return _iresnet('iresnet18', IBasicBlock, [2, 2, 2, 2], pretrained,
+                    progress, **kwargs)
+
+
+def iresnet34(pretrained=False, progress=True, **kwargs):
+    return _iresnet('iresnet34', IBasicBlock, [3, 4, 6, 3], pretrained,
+                    progress, **kwargs)
+
+
+def iresnet50(pretrained=False, progress=True, **kwargs):
+    return _iresnet('iresnet50', IBasicBlock, [3, 4, 14, 3], pretrained,
+                    progress, **kwargs)
 
 
 def iresnet100(pretrained=False, progress=True, **kwargs):
-    return _iresnet(
-        "iresnet100", IBasicBlock, [3, 13, 30, 3], pretrained, progress, **kwargs
-    )
+    return _iresnet('iresnet100', IBasicBlock, [3, 13, 30, 3], pretrained,
+                    progress, **kwargs)
 
 
-def insight_face(path="16_backbone.pth", device="cuda", train=False):
+def iresnet200(pretrained=False, progress=True, **kwargs):
+    return _iresnet('iresnet200', IBasicBlock, [6, 26, 60, 6], pretrained,
+                    progress, **kwargs)
+    
+
+def iresnet34_inference(path, device="cuda"):
     weight = torch.load(path, map_location=device)
-    resnet = iresnet100()
-    resnet.load_state_dict(weight)
-    model = torch.nn.DataParallel(resnet).to(device)
+    resnet18 = iresnet18()
+    resnet18.load_state_dict(weight)
+    model = torch.nn.DataParallel(resnet18).to(device)
 
-    if train:
-        return model
+    return model.eval()
+
+def iresnet34_inference(path, device="cuda"):
+    weight = torch.load(path, map_location=device)
+    resnet34 = iresnet34()
+    resnet34.load_state_dict(weight)
+    model = torch.nn.DataParallel(resnet34).to(device)
 
     return model.eval()

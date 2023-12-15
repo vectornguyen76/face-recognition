@@ -8,32 +8,26 @@ import torch
 import yaml
 from torchvision import transforms
 
-from add_person import read_features
-from face_alignment.utils import compare_encodings, norm_crop
+from face_alignment.alignment import norm_crop
 from face_detection.scrfd.detector import SCRFD
 from face_detection.yolov5_face.detector import Yolov5Face
-from face_recognition.arcface.model import iresnet18
+from face_recognition.arcface.model import iresnet34_inference
+from face_recognition.arcface.utils import compare_encodings, read_features
 from face_tracking.tracker.byte_tracker import BYTETracker
 from face_tracking.tracker.visualize import plot_tracking
 
-face_data = {}
+device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+
 # detector = Yolov5Face(model_file="face_detection/yolov5_face/weights/yolov5n-face.pt")
 detector = SCRFD(model_file="face_detection/scrfd/weights/scrfd_2.5g_bnkps.onnx")
 
-device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-weight = torch.load(
-    "face_recognition/arcface/weights/arcface_r18.pth", map_location=device
-)
-model_emb = iresnet18()
-
-model_emb.load_state_dict(weight)
-model_emb.to(device)
-model_emb.eval()
+recognizer = iresnet34_inference(path="face_recognition/arcface/weights/arcface_r34.pth", device=device)
 
 images_names, images_embs = read_features(
     feature_path="./datasets/face_features/feature"
 )
 
+id_face_mapping = {}
 
 # Function to load a YAML configuration file
 def load_config(file_name):
@@ -44,14 +38,14 @@ def load_config(file_name):
             print(exc)
 
 
-def track(frame, detector, tracker, args, frame_id, fps):
+def process_tracking(frame, detector, tracker, args, frame_id, fps):
     # Perform face detection and tracking on the frame
     outputs, img_info, bboxes, landmarks = detector.detect_tracking(image=frame)
 
-    online_tlwhs = []
-    online_ids = []
-    online_scores = []
-    online_bboxes = []
+    tracking_tlwhs = []
+    tracking_ids = []
+    tracking_scores = []
+    tracking_bboxes = []
 
     if outputs is not None:
         online_targets = tracker.update(
@@ -65,27 +59,27 @@ def track(frame, detector, tracker, args, frame_id, fps):
             vertical = tlwh[2] / tlwh[3] > args["aspect_ratio_thresh"]
             if tlwh[2] * tlwh[3] > args["min_box_area"] and not vertical:
                 x1, y1, w, h = tlwh
-                online_bboxes.append([x1, y1, x1 + w, y1 + h])
-                online_tlwhs.append(tlwh)
-                online_ids.append(tid)
-                online_scores.append(t.score)
+                tracking_bboxes.append([x1, y1, x1 + w, y1 + h])
+                tracking_tlwhs.append(tlwh)
+                tracking_ids.append(tid)
+                tracking_scores.append(t.score)
 
-        online_im = plot_tracking(
+        tracking_im = plot_tracking(
             img_info["raw_img"],
-            online_tlwhs,
-            online_ids,
-            names=face_data,
+            tracking_tlwhs,
+            tracking_ids,
+            names=id_face_mapping,
             frame_id=frame_id + 1,
             fps=fps,
         )
     else:
-        online_im = img_info["raw_img"]
+        tracking_im = img_info["raw_img"]
 
     return (
-        online_bboxes,
-        online_im,
-        online_tlwhs,
-        online_ids,
+        tracking_bboxes,
+        tracking_im,
+        tracking_tlwhs,
+        tracking_ids,
         img_info["raw_img"],
         bboxes,
         landmarks,
@@ -109,7 +103,7 @@ def get_feature(face_image):
 
     # Via model to get feature
     with torch.no_grad():
-        emb_img_face = model_emb(face_image[None, :]).cpu().numpy()
+        emb_img_face = recognizer(face_image[None, :]).cpu().numpy()
 
     # Convert to array
     images_emb = emb_img_face / np.linalg.norm(emb_img_face)
@@ -124,6 +118,7 @@ def recognition(face_image):
     score, id_min = compare_encodings(query_emb, images_embs)
     name = images_names[id_min]
     score = score[0]
+    
     return score, name
 
 
@@ -154,7 +149,7 @@ def mapping_bbox(box1, box2):
 
 
 # thread 1
-def inference(detector, args, frame_queue):
+def tracking(detector, args, frame_queue):
     # Initialize variables for measuring frame rate
     start_time = time.time_ns()
     frame_count = 0
@@ -170,15 +165,17 @@ def inference(detector, args, frame_queue):
         ret, img = cap.read()
 
         (
-            online_bboxes,
+            tracking_bboxes,
             online_frame,
-            online_tlwhs,
-            online_ids,
+            tracking_tlwhs,
+            tracking_ids,
             raw_image,
             bboxes,
             landmarks,
-        ) = track(img, detector, tracker, args, frame_id, fps)
-        frame_queue.put((raw_image, online_ids, bboxes, landmarks, online_bboxes))
+        ) = process_tracking(img, detector, tracker, args, frame_id, fps)
+        
+        
+        frame_queue.put((raw_image, tracking_ids, bboxes, landmarks, tracking_bboxes))
 
         # Calculate and display the frame rate
         frame_count += 1
@@ -198,11 +195,11 @@ def inference(detector, args, frame_queue):
 # thread 2
 def recognize(frame_queue):
     while True:
-        raw_image, online_ids, bboxes, landmarks, online_bboxes = frame_queue.get()
+        raw_image, tracking_ids, bboxes, landmarks, tracking_bboxes = frame_queue.get()
 
-        for i in range(len(online_bboxes)):
+        for i in range(len(tracking_bboxes)):
             for j in range(len(bboxes)):
-                mapping_score = mapping_bbox(online_bboxes[i], bboxes[j])
+                mapping_score = mapping_bbox(tracking_bboxes[i], bboxes[j])
                 if mapping_score > 0.9:
                     align = norm_crop(raw_image, landmarks[j])
 
@@ -213,12 +210,13 @@ def recognize(frame_queue):
                             caption = "UN_KNOWN"
                         else:
                             caption = f"{name}:{score:.2f}"
-                    face_data[online_ids[i]] = caption
+                    id_face_mapping[tracking_ids[i]] = caption
 
                     bboxes = np.delete(bboxes, j, axis=0)
                     landmarks = np.delete(landmarks, j, axis=0)
                     break
 
+        print(id_face_mapping)
 
 def main():
     file_name = "./face_tracking/config/config_tracking.yaml"
@@ -227,7 +225,7 @@ def main():
     frame_queue = Queue()
 
     thread_track = threading.Thread(
-        target=inference,
+        target=tracking,
         args=(
             detector,
             config_tracking,
