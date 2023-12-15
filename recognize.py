@@ -21,13 +21,14 @@ device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 # detector = Yolov5Face(model_file="face_detection/yolov5_face/weights/yolov5n-face.pt")
 detector = SCRFD(model_file="face_detection/scrfd/weights/scrfd_2.5g_bnkps.onnx")
 
-recognizer = iresnet34_inference(path="face_recognition/arcface/weights/arcface_r34.pth", device=device)
-
-images_names, images_embs = read_features(
-    feature_path="./datasets/face_features/feature"
+recognizer = iresnet34_inference(
+    path="face_recognition/arcface/weights/arcface_r34.pth", device=device
 )
 
+images_names, images_embs = read_features(feature_path="./datasets/face_features/feature")
+
 id_face_mapping = {}
+
 
 # Function to load a YAML configuration file
 def load_config(file_name):
@@ -118,7 +119,7 @@ def recognition(face_image):
     score, id_min = compare_encodings(query_emb, images_embs)
     name = images_names[id_min]
     score = score[0]
-    
+
     return score, name
 
 
@@ -173,8 +174,7 @@ def tracking(detector, args, frame_queue):
             bboxes,
             landmarks,
         ) = process_tracking(img, detector, tracker, args, frame_id, fps)
-        
-        
+
         frame_queue.put((raw_image, tracking_ids, bboxes, landmarks, tracking_bboxes))
 
         # Calculate and display the frame rate
@@ -217,6 +217,7 @@ def recognize(frame_queue):
                     break
 
         print(id_face_mapping)
+
 
 def main():
     file_name = "./face_tracking/config/config_tracking.yaml"

@@ -24,9 +24,7 @@ def main():
     frame_width = int(cap.get(3))
     frame_height = int(cap.get(4))
     size = (frame_width, frame_height)
-    video = cv2.VideoWriter(
-        "results/face-detection.mp4", cv2.VideoWriter_fourcc(*"mp4v"), 30, size
-    )
+    video = cv2.VideoWriter("results/face-detection.mp4", cv2.VideoWriter_fourcc(*"mp4v"), 30, size)
 
     # Read frames from the camera
     while True:
@@ -50,7 +48,7 @@ def main():
             # Draw facial landmarks
             for id, key_point in enumerate(landmarks[i]):
                 cv2.circle(frame, tuple(key_point), tl + 1, clors[id], -1)
-                
+
             align = norm_crop(frame, landmarks[i])
 
         # Calculate and display the frame rate
@@ -63,9 +61,7 @@ def main():
 
         if fps > 0:
             fps_label = "FPS: %.2f" % fps
-            cv2.putText(
-                frame, fps_label, (10, 25), cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 0, 255), 2
-            )
+            cv2.putText(frame, fps_label, (10, 25), cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 0, 255), 2)
 
         # Save the frame to the video
         video.write(frame)

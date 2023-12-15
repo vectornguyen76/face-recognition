@@ -20,7 +20,10 @@ device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 detector = SCRFD(model_file="face_detection/scrfd/weights/scrfd_2.5g_bnkps.onnx")
 
 # Initialize the face recognizer
-recognizer = iresnet34_inference(path="face_recognition/arcface/weights/arcface_r34.pth", device=device)
+recognizer = iresnet34_inference(
+    path="face_recognition/arcface/weights/arcface_r34.pth", device=device
+)
+
 
 def get_feature(face_image):
     """
@@ -33,11 +36,13 @@ def get_feature(face_image):
         numpy.ndarray: Extracted facial features.
     """
     # Define a series of image preprocessing steps
-    face_preprocess = transforms.Compose([
-        transforms.ToTensor(),
-        transforms.Resize((112, 112)),
-        transforms.Normalize(mean=[0.5, 0.5, 0.5], std=[0.5, 0.5, 0.5]),
-    ])
+    face_preprocess = transforms.Compose(
+        [
+            transforms.ToTensor(),
+            transforms.Resize((112, 112)),
+            transforms.Normalize(mean=[0.5, 0.5, 0.5], std=[0.5, 0.5, 0.5]),
+        ]
+    )
 
     # Convert the image to RGB format
     face_image = cv2.cvtColor(face_image, cv2.COLOR_BGR2RGB)
@@ -52,6 +57,7 @@ def get_feature(face_image):
     # Normalize the features
     images_emb = emb_img_face / np.linalg.norm(emb_img_face)
     return images_emb
+
 
 def add_person(backup_dir, add_person_dir, faces_save_dir, features_path):
     """
@@ -135,13 +141,34 @@ def add_person(backup_dir, add_person_dir, faces_save_dir, features_path):
 
     print("Successfully added new person!")
 
+
 if __name__ == "__main__":
     # Parse command line arguments
     parser = argparse.ArgumentParser()
-    parser.add_argument("--backup-dir", type=str, default="./datasets/backup", help="Directory to save person data.")
-    parser.add_argument("--add-person-dir", type=str, default="./datasets/new_person", help="Directory to add new person.")
-    parser.add_argument("--faces-save-dir", type=str, default="./datasets/data/", help="Directory to save faces.")
-    parser.add_argument("--features-path", type=str, default="./datasets/face_features/feature", help="Path to save face features.")
+    parser.add_argument(
+        "--backup-dir",
+        type=str,
+        default="./datasets/backup",
+        help="Directory to save person data.",
+    )
+    parser.add_argument(
+        "--add-person-dir",
+        type=str,
+        default="./datasets/new_person",
+        help="Directory to add new person.",
+    )
+    parser.add_argument(
+        "--faces-save-dir",
+        type=str,
+        default="./datasets/data/",
+        help="Directory to save faces.",
+    )
+    parser.add_argument(
+        "--features-path",
+        type=str,
+        default="./datasets/face_features/feature",
+        help="Path to save face features.",
+    )
     opt = parser.parse_args()
 
     # Run the main function

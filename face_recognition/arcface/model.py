@@ -100,9 +100,7 @@ class IResNet(nn.Module):
             )
         self.groups = groups
         self.base_width = width_per_group
-        self.conv1 = nn.Conv2d(
-            3, self.inplanes, kernel_size=3, stride=1, padding=1, bias=False
-        )
+        self.conv1 = nn.Conv2d(3, self.inplanes, kernel_size=3, stride=1, padding=1, bias=False)
         self.bn1 = nn.BatchNorm2d(self.inplanes, eps=1e-05)
         self.prelu = nn.PReLU(self.inplanes)
         self.layer1 = self._make_layer(block, 64, layers[0], stride=2)
@@ -202,31 +200,25 @@ def _iresnet(arch, block, layers, pretrained, progress, **kwargs):
     return model
 
 
-
 def iresnet18(pretrained=False, progress=True, **kwargs):
-    return _iresnet('iresnet18', IBasicBlock, [2, 2, 2, 2], pretrained,
-                    progress, **kwargs)
+    return _iresnet("iresnet18", IBasicBlock, [2, 2, 2, 2], pretrained, progress, **kwargs)
 
 
 def iresnet34(pretrained=False, progress=True, **kwargs):
-    return _iresnet('iresnet34', IBasicBlock, [3, 4, 6, 3], pretrained,
-                    progress, **kwargs)
+    return _iresnet("iresnet34", IBasicBlock, [3, 4, 6, 3], pretrained, progress, **kwargs)
 
 
 def iresnet50(pretrained=False, progress=True, **kwargs):
-    return _iresnet('iresnet50', IBasicBlock, [3, 4, 14, 3], pretrained,
-                    progress, **kwargs)
+    return _iresnet("iresnet50", IBasicBlock, [3, 4, 14, 3], pretrained, progress, **kwargs)
 
 
 def iresnet100(pretrained=False, progress=True, **kwargs):
-    return _iresnet('iresnet100', IBasicBlock, [3, 13, 30, 3], pretrained,
-                    progress, **kwargs)
+    return _iresnet("iresnet100", IBasicBlock, [3, 13, 30, 3], pretrained, progress, **kwargs)
 
 
 def iresnet200(pretrained=False, progress=True, **kwargs):
-    return _iresnet('iresnet200', IBasicBlock, [6, 26, 60, 6], pretrained,
-                    progress, **kwargs)
-    
+    return _iresnet("iresnet200", IBasicBlock, [6, 26, 60, 6], pretrained, progress, **kwargs)
+
 
 def iresnet34_inference(path, device="cuda"):
     weight = torch.load(path, map_location=device)
@@ -235,6 +227,7 @@ def iresnet34_inference(path, device="cuda"):
     model = torch.nn.DataParallel(resnet18).to(device)
 
     return model.eval()
+
 
 def iresnet34_inference(path, device="cuda"):
     weight = torch.load(path, map_location=device)
