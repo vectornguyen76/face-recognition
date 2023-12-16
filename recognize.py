@@ -1,6 +1,5 @@
 import threading
 import time
-from queue import Queue
 
 import cv2
 import numpy as np
@@ -11,7 +10,7 @@ from torchvision import transforms
 from face_alignment.alignment import norm_crop
 from face_detection.scrfd.detector import SCRFD
 from face_detection.yolov5_face.detector import Yolov5Face
-from face_recognition.arcface.model import iresnet34_inference
+from face_recognition.arcface.model import iresnet_inference
 from face_recognition.arcface.utils import compare_encodings, read_features
 from face_tracking.tracker.byte_tracker import BYTETracker
 from face_tracking.tracker.visualize import plot_tracking
@@ -21,13 +20,21 @@ device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 # detector = Yolov5Face(model_file="face_detection/yolov5_face/weights/yolov5n-face.pt")
 detector = SCRFD(model_file="face_detection/scrfd/weights/scrfd_2.5g_bnkps.onnx")
 
-recognizer = iresnet34_inference(
-    path="face_recognition/arcface/weights/arcface_r34.pth", device=device
+recognizer = iresnet_inference(
+    model_name="r100", path="face_recognition/arcface/weights/arcface_r100.pth", device=device
 )
 
 images_names, images_embs = read_features(feature_path="./datasets/face_features/feature")
 
 id_face_mapping = {}
+
+data_mapping = {
+    "raw_image": [],
+    "tracking_ids": [],
+    "detection_bboxes": [],
+    "detection_landmarks": [],
+    "tracking_bboxes": [],
+}
 
 
 # Function to load a YAML configuration file
@@ -65,7 +72,7 @@ def process_tracking(frame, detector, tracker, args, frame_id, fps):
                 tracking_ids.append(tid)
                 tracking_scores.append(t.score)
 
-        tracking_im = plot_tracking(
+        tracking_image = plot_tracking(
             img_info["raw_img"],
             tracking_tlwhs,
             tracking_ids,
@@ -74,17 +81,15 @@ def process_tracking(frame, detector, tracker, args, frame_id, fps):
             fps=fps,
         )
     else:
-        tracking_im = img_info["raw_img"]
+        tracking_image = img_info["raw_img"]
 
-    return (
-        tracking_bboxes,
-        tracking_im,
-        tracking_tlwhs,
-        tracking_ids,
-        img_info["raw_img"],
-        bboxes,
-        landmarks,
-    )
+    data_mapping["raw_image"] = img_info["raw_img"]
+    data_mapping["detection_bboxes"] = bboxes
+    data_mapping["detection_landmarks"] = landmarks
+    data_mapping["tracking_ids"] = tracking_ids
+    data_mapping["tracking_bboxes"] = tracking_bboxes
+
+    return tracking_image
 
 
 def get_feature(face_image):
@@ -150,7 +155,7 @@ def mapping_bbox(box1, box2):
 
 
 # thread 1
-def tracking(detector, args, frame_queue):
+def tracking(detector, args):
     # Initialize variables for measuring frame rate
     start_time = time.time_ns()
     frame_count = 0
@@ -163,19 +168,9 @@ def tracking(detector, args, frame_queue):
     cap = cv2.VideoCapture(0)
 
     while True:
-        ret, img = cap.read()
+        _, img = cap.read()
 
-        (
-            tracking_bboxes,
-            online_frame,
-            tracking_tlwhs,
-            tracking_ids,
-            raw_image,
-            bboxes,
-            landmarks,
-        ) = process_tracking(img, detector, tracker, args, frame_id, fps)
-
-        frame_queue.put((raw_image, tracking_ids, bboxes, landmarks, tracking_bboxes))
+        tracking_image = process_tracking(img, detector, tracker, args, frame_id, fps)
 
         # Calculate and display the frame rate
         frame_count += 1
@@ -184,7 +179,7 @@ def tracking(detector, args, frame_queue):
             frame_count = 0
             start_time = time.time_ns()
 
-        cv2.imshow("Face Recognition", online_frame)
+        cv2.imshow("Face Recognition", tracking_image)
 
         # Check for user exit input
         ch = cv2.waitKey(1)
@@ -193,49 +188,52 @@ def tracking(detector, args, frame_queue):
 
 
 # thread 2
-def recognize(frame_queue):
+def recognize():
     while True:
-        raw_image, tracking_ids, bboxes, landmarks, tracking_bboxes = frame_queue.get()
+        raw_image = data_mapping["raw_image"]
+        detection_landmarks = data_mapping["detection_landmarks"]
+        detection_bboxes = data_mapping["detection_bboxes"]
+        tracking_ids = data_mapping["tracking_ids"]
+        tracking_bboxes = data_mapping["tracking_bboxes"]
 
         for i in range(len(tracking_bboxes)):
-            for j in range(len(bboxes)):
-                mapping_score = mapping_bbox(tracking_bboxes[i], bboxes[j])
+            for j in range(len(detection_bboxes)):
+                mapping_score = mapping_bbox(box1=tracking_bboxes[i], box2=detection_bboxes[j])
                 if mapping_score > 0.9:
-                    align = norm_crop(raw_image, landmarks[j])
+                    face_alignment = norm_crop(img=raw_image, landmark=detection_landmarks[j])
 
-                    score, name = recognition(align)
-
+                    score, name = recognition(face_image=face_alignment)
                     if name != None:
                         if score < 0.25:
                             caption = "UN_KNOWN"
                         else:
                             caption = f"{name}:{score:.2f}"
+
                     id_face_mapping[tracking_ids[i]] = caption
 
-                    bboxes = np.delete(bboxes, j, axis=0)
-                    landmarks = np.delete(landmarks, j, axis=0)
+                    detection_bboxes = np.delete(detection_bboxes, j, axis=0)
+                    detection_landmarks = np.delete(detection_landmarks, j, axis=0)
+
                     break
 
-        print(id_face_mapping)
+        if tracking_bboxes == []:
+            print("Waiting person...")
 
 
 def main():
     file_name = "./face_tracking/config/config_tracking.yaml"
     config_tracking = load_config(file_name)
 
-    frame_queue = Queue()
-
     thread_track = threading.Thread(
         target=tracking,
         args=(
             detector,
             config_tracking,
-            frame_queue,
         ),
     )
     thread_track.start()
 
-    thread_recognize = threading.Thread(target=recognize, args=(frame_queue,))
+    thread_recognize = threading.Thread(target=recognize)
     thread_recognize.start()
 
 

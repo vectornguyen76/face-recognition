@@ -220,19 +220,21 @@ def iresnet200(pretrained=False, progress=True, **kwargs):
     return _iresnet("iresnet200", IBasicBlock, [6, 26, 60, 6], pretrained, progress, **kwargs)
 
 
-def iresnet34_inference(path, device="cuda"):
+def iresnet_inference(model_name, path, device="cuda"):
+    if model_name == "r18":
+        model = iresnet18()
+    elif model_name == "r34":
+        model = iresnet34()
+    elif model_name == "r50":
+        model = iresnet50()
+    elif model_name == "r100":
+        model = iresnet100()
+    else:
+        raise ValueError()
+
     weight = torch.load(path, map_location=device)
-    resnet18 = iresnet18()
-    resnet18.load_state_dict(weight)
-    model = torch.nn.DataParallel(resnet18).to(device)
 
-    return model.eval()
-
-
-def iresnet34_inference(path, device="cuda"):
-    weight = torch.load(path, map_location=device)
-    resnet34 = iresnet34()
-    resnet34.load_state_dict(weight)
-    model = torch.nn.DataParallel(resnet34).to(device)
+    model.load_state_dict(weight)
+    model.to(device)
 
     return model.eval()
