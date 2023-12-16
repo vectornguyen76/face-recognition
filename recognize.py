@@ -15,19 +15,25 @@ from face_recognition.arcface.utils import compare_encodings, read_features
 from face_tracking.tracker.byte_tracker import BYTETracker
 from face_tracking.tracker.visualize import plot_tracking
 
+# Device configuration
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
-# detector = Yolov5Face(model_file="face_detection/yolov5_face/weights/yolov5n-face.pt")
+# Face detector (choose one)
 detector = SCRFD(model_file="face_detection/scrfd/weights/scrfd_2.5g_bnkps.onnx")
+# detector = Yolov5Face(model_file="face_detection/yolov5_face/weights/yolov5n-face.pt")
 
+# Face recognizer
 recognizer = iresnet_inference(
     model_name="r100", path="face_recognition/arcface/weights/arcface_r100.pth", device=device
 )
 
+# Load precomputed face features and names
 images_names, images_embs = read_features(feature_path="./datasets/face_features/feature")
 
+# Mapping of face IDs to names
 id_face_mapping = {}
 
+# Data mapping for tracking information
 data_mapping = {
     "raw_image": [],
     "tracking_ids": [],
@@ -37,8 +43,16 @@ data_mapping = {
 }
 
 
-# Function to load a YAML configuration file
 def load_config(file_name):
+    """
+    Load a YAML configuration file.
+
+    Args:
+        file_name (str): The path to the YAML configuration file.
+
+    Returns:
+        dict: The loaded configuration as a dictionary.
+    """
     with open(file_name, "r") as stream:
         try:
             return yaml.safe_load(stream)
@@ -47,7 +61,21 @@ def load_config(file_name):
 
 
 def process_tracking(frame, detector, tracker, args, frame_id, fps):
-    # Perform face detection and tracking on the frame
+    """
+    Process tracking for a frame.
+
+    Args:
+        frame: The input frame.
+        detector: The face detector.
+        tracker: The object tracker.
+        args (dict): Tracking configuration parameters.
+        frame_id (int): The frame ID.
+        fps (float): Frames per second.
+
+    Returns:
+        numpy.ndarray: The processed tracking image.
+    """
+    # Face detection and tracking
     outputs, img_info, bboxes, landmarks = detector.detect_tracking(image=frame)
 
     tracking_tlwhs = []
@@ -92,7 +120,17 @@ def process_tracking(frame, detector, tracker, args, frame_id, fps):
     return tracking_image
 
 
+@torch.no_grad()
 def get_feature(face_image):
+    """
+    Extract features from a face image.
+
+    Args:
+        face_image: The input face image.
+
+    Returns:
+        numpy.ndarray: The extracted features.
+    """
     face_preprocess = transforms.Compose(
         [
             transforms.ToTensor(),
@@ -104,12 +142,11 @@ def get_feature(face_image):
     # Convert to RGB
     face_image = cv2.cvtColor(face_image, cv2.COLOR_BGR2RGB)
 
-    # Preprocessing image BGR
-    face_image = face_preprocess(face_image).to(device)
+    # Preprocess image (BGR)
+    face_image = face_preprocess(face_image).unsqueeze(0).to(device)
 
-    # Via model to get feature
-    with torch.no_grad():
-        emb_img_face = recognizer(face_image[None, :]).cpu().numpy()
+    # Inference to get feature
+    emb_img_face = recognizer(face_image).cpu().numpy()
 
     # Convert to array
     images_emb = emb_img_face / np.linalg.norm(emb_img_face)
@@ -118,6 +155,15 @@ def get_feature(face_image):
 
 
 def recognition(face_image):
+    """
+    Recognize a face image.
+
+    Args:
+        face_image: The input face image.
+
+    Returns:
+        tuple: A tuple containing the recognition score and name.
+    """
     # Get feature from face
     query_emb = get_feature(face_image)
 
@@ -129,8 +175,16 @@ def recognition(face_image):
 
 
 def mapping_bbox(box1, box2):
-    # box format: (x_min, y_min, x_max, y_max)
+    """
+    Calculate the Intersection over Union (IoU) between two bounding boxes.
 
+    Args:
+        box1 (tuple): The first bounding box (x_min, y_min, x_max, y_max).
+        box2 (tuple): The second bounding box (x_min, y_min, x_max, y_max).
+
+    Returns:
+        float: The IoU score.
+    """
     # Calculate the intersection area
     x_min_inter = max(box1[0], box2[0])
     y_min_inter = max(box1[1], box2[1])
@@ -154,8 +208,14 @@ def mapping_bbox(box1, box2):
     return iou
 
 
-# thread 1
 def tracking(detector, args):
+    """
+    Face tracking in a separate thread.
+
+    Args:
+        detector: The face detector.
+        args (dict): Tracking configuration parameters.
+    """
     # Initialize variables for measuring frame rate
     start_time = time.time_ns()
     frame_count = 0
@@ -187,8 +247,8 @@ def tracking(detector, args):
             break
 
 
-# thread 2
 def recognize():
+    """Face recognition in a separate thread."""
     while True:
         raw_image = data_mapping["raw_image"]
         detection_landmarks = data_mapping["detection_landmarks"]
@@ -203,7 +263,7 @@ def recognize():
                     face_alignment = norm_crop(img=raw_image, landmark=detection_landmarks[j])
 
                     score, name = recognition(face_image=face_alignment)
-                    if name != None:
+                    if name is not None:
                         if score < 0.25:
                             caption = "UN_KNOWN"
                         else:
@@ -217,13 +277,15 @@ def recognize():
                     break
 
         if tracking_bboxes == []:
-            print("Waiting person...")
+            print("Waiting for a person...")
 
 
 def main():
+    """Main function to start face tracking and recognition threads."""
     file_name = "./face_tracking/config/config_tracking.yaml"
     config_tracking = load_config(file_name)
 
+    # Start tracking thread
     thread_track = threading.Thread(
         target=tracking,
         args=(
@@ -233,6 +295,7 @@ def main():
     )
     thread_track.start()
 
+    # Start recognition thread
     thread_recognize = threading.Thread(target=recognize)
     thread_recognize.start()
 

@@ -25,6 +25,7 @@ recognizer = iresnet_inference(
 )
 
 
+@torch.no_grad()
 def get_feature(face_image):
     """
     Extract facial features from an image using the face recognition model.
@@ -48,11 +49,10 @@ def get_feature(face_image):
     face_image = cv2.cvtColor(face_image, cv2.COLOR_BGR2RGB)
 
     # Apply the defined preprocessing to the image
-    face_image = face_preprocess(face_image).to(device)
+    face_image = face_preprocess(face_image).unsqueeze(0).to(device)
 
     # Use the model to obtain facial features
-    with torch.no_grad():
-        emb_img_face = recognizer(face_image[None, :])[0].cpu().numpy()
+    emb_img_face = recognizer(face_image)[0].cpu().numpy()
 
     # Normalize the features
     images_emb = emb_img_face / np.linalg.norm(emb_img_face)
