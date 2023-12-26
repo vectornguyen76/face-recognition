@@ -8,6 +8,7 @@
 
 ## Table of Contents
 
+- [Architecture](#architecture)
 - [How to use](#how-to-use)
   - [Create Environment and Install Packages](#create-environment-and-install-packages)
   - [Add new persons to datasets](#add-new-persons-to-datasets)
@@ -17,6 +18,14 @@
   - [Face Tracking](#face-tracking)
   - [Matching Algorithm](#matching-algorithm)
 - [Reference](#reference)
+
+## Architecture
+
+   <p align="center">
+   <img src="./assets/sequence-diagram.png" alt="Sequence Diagram" />
+   <br>
+   <em>Sequence Diagram</em>
+   </p>
 
 ## How to use
 
